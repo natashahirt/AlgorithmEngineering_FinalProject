@@ -7,6 +7,6 @@ The overarching goals of this project are to develop:
 * An implementation of stress-constrained, vertex-centric topology optimization (elements are no longer first-class citizens but a byproduct of the vertex-centric topopt process) that uses ADMM as the backend.
 
 ## Repository Layout
-* `AlgEng/Project.toml` and `AlgEng/Project.toml`: Julia environment manifest and dependencies for the `AlgEng` package.
+* `AlgEng/Manifest.toml` and `AlgEng/Project.toml`: Julia environment manifest and dependencies for the `AlgEng` package.
 * `AlgEng/src/AlgEng.jl`: Package entry point.
 * `LICENSE`: Project license (MIT).
