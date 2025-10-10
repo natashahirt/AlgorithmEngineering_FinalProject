@@ -10,7 +10,9 @@ MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
 Mooncake = "0.4.57"
 Printf = "1.11.0"
+Test = "1.11.0"
