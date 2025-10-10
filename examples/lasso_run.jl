@@ -1,12 +1,9 @@
-using Pkg; Pkg.activate(dirname(@__DIR__)) # activate project root
+using Pkg; Pkg.activate(dirname(@__DIR__))
 
 # modules
 using ADMM
 using SparseArrays: sprandn
 using LinearAlgebra: norm
-using MPI
-
-MPI.Init()
 
 # synthetic problem
 println("Creating synthetic LASSO problem...")
@@ -44,4 +41,4 @@ obj_val = evaluate_objective(problem, state.x) + evaluate_global_regularizer(pro
 println("Objective value: $obj_val")
 
 # Finalize MPI
-MPI.Finalize()
+# MPI.Finalize()

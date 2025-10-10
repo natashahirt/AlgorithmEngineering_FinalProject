@@ -35,21 +35,23 @@ init
 """
 function init(problem; params=ADMMParams(), comm=nothing)
     dist_trait = DistributionTrait(typeof(problem))
-    
-    if dist_trait isa Serial || comm == nothing
+
+    if !MPI.Initialized() # initialize MPI
+        MPI.Init()
+    end
+
+    if dist_trait isa Serial
         rank = 0
         nprocs = 1
-        comm_actual = MPI.COMM_SELF
+        comm = MPI.COMM_SELF
     else
-        if comm == nothing
-            comm = MPI.COMM_WORLD
-        end
+        comm = something(comm, MPI.COMM_WORLD)  # use provided or default to COMM_WORLD
         rank = MPI.Comm_rank(comm)
         nprocs = MPI.Comm_size(comm)
-        comm_actual = comm
     end
+
     # Create state with Nothing context initially
-    state = ADMMState(problem, comm_actual, rank, nprocs,
+    state = ADMMState(problem, comm, rank, nprocs,
                       0, 0, Float64[], Float64[], Float64[], Float64[], Float64[], 
                       Float64[], Float64[], nothing, params)
     
