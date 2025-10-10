@@ -1,19 +1,14 @@
-module ADMM_Lasso
-
-using LinearAlgebra
-using MPI
-using Main.ADMM
-
 export LassoProblem
 
 """
 Define problem
 """
 
-Base.@kwdef mutable struct LassoProblem
+Base.@kwdef mutable struct LassoProblem{D <: ADMM.DistributionMode}
     A::AbstractMatrix{Float64} # design matrix (m x n)
     b::AbstractVector{Float64} # observations (m x 1)
     λ::Float64 = 0.1 # L1 penalty parameter
+    distribution::D = ADMM.Serial() # default to serial
 end
 
 mutable struct LassoContext
@@ -29,7 +24,8 @@ Define traits
 """
 
 # Distribute across multiple processes
-ADMM.DistributionTrait(::Type{<:LassoProblem}) = ADMM.MPIConsensus()
+# ADMM.DistributionTrait(::Type{<:LassoProblem}) = ADMM.MPIConsensus()
+ADMM.DistributionTrait(::Type{<:LassoProblem{D}}) where D = D()
 
 # Closed-form proximal operator (soft-thresholding)
 ADMM.ProximalTrait(::Type{<:LassoProblem}) = ADMM.ClosedFormProx()
@@ -39,7 +35,7 @@ ADMM.ProximalTrait(::Type{<:LassoProblem}) = ADMM.ClosedFormProx()
 Custom functions
 """
 
-function ADMM.setup!(state::ADMM.ADMMState{LassoProblem, C}) where C
+function ADMM.setup!(state::ADMM.ADMMState{LassoProblem{D}, C}) where {D, C}
     problem = state.problem
     A = problem.A
     b = problem.b
@@ -95,7 +91,7 @@ function ADMM.evaluate_global_regularizer(problem::LassoProblem, z)
     return problem.λ * norm(z, 1)
 end
 
-function ADMM._admm_rho_changed!(state::ADMM.ADMMState{LassoProblem, LassoContext})
+function ADMM._admm_rho_changed!(state::ADMM.ADMMState{LassoProblem{D}, LassoContext}) where D
     A = state.problem.A
     m, n = size(A)
     ρ = state.params.ρ
@@ -115,7 +111,7 @@ function ADMM._admm_rho_changed!(state::ADMM.ADMMState{LassoProblem, LassoContex
 end
 
 # closed form updates
-function ADMM._x_update!(state::ADMM.ADMMState{LassoProblem, LassoContext})
+function ADMM._x_update!(state::ADMM.ADMMState{LassoProblem{D}, LassoContext}) where D
     ρ = state.params.ρ
     ctx = state.ctx
     A = state.problem.A
@@ -137,7 +133,7 @@ function ADMM._x_update!(state::ADMM.ADMMState{LassoProblem, LassoContext})
     end
 end
 
-function ADMM._apply_proximal!(state::ADMM.ADMMState{LassoProblem, LassoContext}, ::ADMM.ClosedFormProx)
+function ADMM._apply_proximal!(state::ADMM.ADMMState{LassoProblem{D}, LassoContext}, ::ADMM.ClosedFormProx) where D
     λ = state.problem.λ
     μ = state.nprocs * state.params.ρ  # Nρ
     τ = λ / μ # threshold
@@ -154,12 +150,3 @@ function ADMM._apply_proximal!(state::ADMM.ADMMState{LassoProblem, LassoContext}
         end
     end
 end
-
-function objective_value(state::ADMM.ADMMState{LassoProblem, LassoContext})
-    problem = state.problem
-    data_fit = ADMM.evaluate_objective(problem, state.x)
-    regularizer = ADMM.evaluate_global_regularizer(problem, state.z)
-    return data_fit + regularizer
-end
-
-end # module ADMM_Lasso
