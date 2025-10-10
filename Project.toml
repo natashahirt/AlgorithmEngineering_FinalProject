@@ -1,5 +1,16 @@
+name = "ADMM"
+uuid = "a2b88894-527d-4809-8c92-c7b1f5d6fc19"
+authors = ["Natasha Hirt <nhirt@mit.edu>"]
+version = "0.1.0"
+
 [deps]
 DifferentiationInterface = "a0c0ee7d-e4b9-4e03-894e-1c5f64a51d63"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
+Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
 Optim = "429524aa-4258-5aef-a3af-852621145aeb"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+
+[compat]
+Mooncake = "0.4.57"
+Printf = "1.11.0"
