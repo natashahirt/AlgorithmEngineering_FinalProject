@@ -29,4 +29,7 @@ include("core/api.jl")
 # problem implementations
 include("problems/lasso.jl")
 
+# FEM module
+include("FEM/FEM.jl")
+
 end # of module

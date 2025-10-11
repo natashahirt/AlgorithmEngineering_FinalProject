@@ -3,3 +3,4 @@
 # install all the required dependencies and then run the testsets
 
 include("test_admm_core.jl")
+include("test_fem.jl")
