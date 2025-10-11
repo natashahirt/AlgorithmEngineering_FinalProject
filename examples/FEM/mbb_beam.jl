@@ -19,7 +19,7 @@ optimization. This is the full-domain formulation.
 Author: SATO.jl Contributors
 """
 
-using ADMM.FEM
+using AlgorithmEngineering.FEM
 using LinearAlgebra
 using SparseArrays
 using GLMakie

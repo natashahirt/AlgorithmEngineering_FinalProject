@@ -9,12 +9,12 @@ module FEM
 using LinearAlgebra, SparseArrays, StaticArrays
 
 # Import submodules
-include("mesh.jl")
-include("materials.jl")
-include("elements.jl")
-include("assembly.jl")
-include("boundary.jl")
-include("analysis.jl")
+include("core/mesh.jl")
+include("core/materials.jl")
+include("core/elements.jl")
+include("core/assembly.jl")
+include("core/boundary.jl")
+include("core/analysis.jl")
 
 # exports
 export Mesh, Node, Element, Quad4, Hex8

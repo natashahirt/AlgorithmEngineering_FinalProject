@@ -1,8 +1,7 @@
 using Test
 using StaticArrays
 using SparseArrays
-using ADMM
-using ADMM.FEM
+using AlgorithmEngineering.FEM
 
 @testset "FEM 2D interface" begin
     mesh = generate_rectangular_mesh(1.0, 1.0, 1, 1)

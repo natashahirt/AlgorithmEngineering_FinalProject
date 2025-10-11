@@ -1,5 +1,5 @@
 using Test
-using ADMM
+using AlgorithmEngineering.ADMM
 using LinearAlgebra
 
 @testset "ADMM Core Tests" begin

@@ -1,6 +1,7 @@
 using GLMakie
-using ADMM.FEM
+using AlgorithmEngineering.FEM
 using Colors
+using GeometryBasics
 
 const HEX8_EDGE_PAIRS = (
     (1, 2), (2, 3), (3, 4), (4, 1),     # Bottom face

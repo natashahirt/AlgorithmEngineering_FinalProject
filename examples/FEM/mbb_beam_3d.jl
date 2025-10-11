@@ -19,7 +19,7 @@ optimization. This is the 3D formulation.
 Author: SATO.jl Contributors (adapted for ADMM.FEM)
 """
 
-using ADMM.FEM
+using AlgorithmEngineering.FEM
 using LinearAlgebra
 using SparseArrays
 using GLMakie
