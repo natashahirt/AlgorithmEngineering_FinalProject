@@ -59,7 +59,7 @@ using AlgorithmEngineering.FEM
         @test iszero(f_bc[dof])
     end
 
-    load_case = LoadCase()
+    load_case = LoadCase{Float64}()
     append!(load_case.dirichlet_bcs, fixed_bcs)
     right_node = last(get_boundary_nodes(mesh, "right"))
     merge!(load_case.point_loads, create_point_load(mesh, right_node, 2, 5.0))

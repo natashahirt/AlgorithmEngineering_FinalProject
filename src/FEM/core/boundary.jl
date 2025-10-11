@@ -3,11 +3,6 @@
 Boundary conditions and load application.
 """
 
-export BoundaryCondition, DirichletBC, NeumannBC, LoadCase
-export apply_boundary_conditions!, apply_loads!, get_constrained_dofs
-export create_fixed_support, create_roller_support, create_point_load
-export collect_dirichlet_constraints, collect_neumann_loads
-
 """
 BoundaryCondition
 
@@ -42,17 +37,11 @@ LoadCase
 
 Container for all boundary conditions and loads.
 """
-struct LoadCase{T}
-    dirichlet_bcs::Vector{DirichletBC{T}}
-    neumann_bcs::Vector{NeumannBC{T}}
-    point_loads::Dict{Int,T}
-    distributed_loads::Vector  # Placeholder for distributed loads
-end
-
-LoadCase() = LoadCase(Float64)
-
-function LoadCase(::Type{T}) where {T}
-    return LoadCase{T}(DirichletBC{T}[], NeumannBC{T}[], Dict{Int,T}(), Vector{Any}())
+Base.@kwdef mutable struct LoadCase{T}
+    dirichlet_bcs::Vector{DirichletBC{T}} = DirichletBC{T}[]
+    neumann_bcs::Vector{NeumannBC{T}} = NeumannBC{T}[]
+    point_loads::Dict{Int,T} = Dict{Int,T}()
+    distributed_loads::Vector{Any} = Any[]  # Placeholder for distributed loads
 end
 
 """

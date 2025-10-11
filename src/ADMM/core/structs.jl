@@ -34,11 +34,10 @@ mutable struct ADMMState{P,C}
     u::Vector{Float64} # local scaled dual uᵢ (lagrange multiplier for consensus constraint, makes sure xᵢ == z)
     z::Vector{Float64} # global consensus (all ranks must agree on this one, is an average across ranks)
     z_prev::Vector{Float64} # previous z (check for convergence and calculate dual residual)
-    r::Vector{Float64} # local primal residual (how far is xᵢ from consensus z?)
+    primal_res::Vector{Float64} # local primal residual (how far is xᵢ from consensus z?)
 
     # Work buffers (temp)
-    w::Vector{Float64} # temp storage for intermediate calculations (avoid memory allocation)
-    q::Vector{Float64} # temp storage for intermediate calculations (avoid memory allocation)
+    z_work::Vector{Float64} # working version of z before averaging/proximal (x + u)
 
     # Problem-specific cached context (e.g., Atb, Cholesky factor)
     ctx::C # avoid recomputing expensive operations e.g. least squares, lasso, logistic regression

@@ -156,7 +156,7 @@ end
 load_coords = nodes[load_node].coords
 load_dof = FEM.get_node_dofs(mesh, load_node)[3]  # z-direction (downward)
 
-load_case = FEM.LoadCase()
+load_case = FEM.LoadCase{Float64}()
 append!(load_case.dirichlet_bcs, dirichlet_bcs)
 merge!(load_case.point_loads, FEM.create_point_load(mesh, load_node, 3, load_magnitude))  # direction 3 = z
 

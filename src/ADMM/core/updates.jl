@@ -45,12 +45,12 @@ function _z_update!(state::ADMMState)
     # over-relax using α
     # allows ADMM to take larger steps in the update direction
     if params.α == 1.0
-        @. state.w = state.x + state.u # macro @. just allows vector addition without having to specify
+        @. state.z_work = state.x + state.u # macro @. just allows vector addition without having to specify
     else
-        @. state.w = (params.α * state.x + (1 - params.α) * state.z_prev) + state.u
+        @. state.z_work = (params.α * state.x + (1 - params.α) * state.z_prev) + state.u
     end
 
-    # average w across all z if using MPI
+    # average z_work across all ranks if using MPI
     _average_z!(state, DistributionTrait(typeof(state.problem)))
 
     _apply_proximal!(state, ProximalTrait(typeof(state.problem)))
@@ -60,12 +60,12 @@ end
 multiple dispatch helper functions
 """
 function _average_z!(state::ADMMState, ::MPIConsensus)
-    MPI.Allreduce!(state.w, state.z, MPI.SUM, state.comm) # reduction operation (here, MPI.SUM) across all ranks
+    MPI.Allreduce!(state.z_work, state.z, MPI.SUM, state.comm) # reduction operation (here, MPI.SUM) across all ranks
     @. state.z = state.z / state.nprocs # get the average (divide SUM / N)
 end
 
 function _average_z!(state::ADMMState, ::Serial)
-    copyto!(state.z, state.w)
+    copyto!(state.z, state.z_work)
 end
 
 function _apply_proximal!(state::ADMMState, ::ClosedFormProx)

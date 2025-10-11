@@ -49,9 +49,8 @@ function ADMM.setup!(state::ADMM.ADMMState{LassoProblem{D}, C}) where {D, C}
     u = zeros(n)
     z = zeros(n)
     z_prev = zeros(n)
-    r = zeros(n)
-    w = zeros(n)
-    q = zeros(n)
+    primal_res = zeros(n)
+    z_work = zeros(n)
     
     # Cache expensive computations
     A′b = A' * b
@@ -76,7 +75,7 @@ function ADMM.setup!(state::ADMM.ADMMState{LassoProblem{D}, C}) where {D, C}
     # Return new properly-typed state
     return ADMM.ADMMState(
         problem, state.comm, state.rank, state.nprocs,
-        m, n, x, u, z, z_prev, r, w, q, ctx, state.params
+        m, n, x, u, z, z_prev, primal_res, z_work, ctx, state.params
     )
 end
 
@@ -116,20 +115,21 @@ function ADMM._x_update!(state::ADMM.ADMMState{LassoProblem{D}, LassoContext}) w
     ctx = state.ctx
     A = state.problem.A
 
-    @. state.q = ρ * (state.z - state.u) + ctx.A′b
+    # Compute RHS vector (local variable, no need to store in state)
+    rhs = ρ * (state.z .- state.u) .+ ctx.A′b
 
     if ctx.skinny
-        # Solve (A'A + ρI)x = q using cached Cholesky
+        # Solve (A'A + ρI)x = rhs using cached Cholesky
         # Fix: destination, matrix, source
-        ldiv!(state.x, ctx.L, state.q)       # state.x = L \ q
-        ldiv!(state.x, ctx.L', state.x)      # state.x = L' \ x
+        ldiv!(state.x, ctx.L, rhs)       # state.x = L \ rhs
+        ldiv!(state.x, ctx.L', state.x)  # state.x = L' \ x
     else
-        # Woodbury: x = q/ρ - (1/ρ²) A' (I + (1/ρ)AA')^(-1) (Aq)
-        mul!(ctx.Aq, A, state.q)             # Aq = A * q
-        ldiv!(ctx.p, ctx.L, ctx.Aq)          # ctx.p = L \ Aq
-        ldiv!(ctx.p, ctx.L', ctx.p)          # ctx.p = L' \ p
-        mul!(state.x, A', ctx.p)             # x = A' * p
-        @. state.x = state.q/ρ - state.x/(ρ*ρ)
+        # Woodbury: x = rhs/ρ - (1/ρ²) A' (I + (1/ρ)AA')^(-1) (A*rhs)
+        mul!(ctx.Aq, A, rhs)             # Aq = A * rhs
+        ldiv!(ctx.p, ctx.L, ctx.Aq)      # ctx.p = L \ Aq
+        ldiv!(ctx.p, ctx.L', ctx.p)      # ctx.p = L' \ p
+        mul!(state.x, A', ctx.p)         # x = A' * p
+        @. state.x = rhs/ρ - state.x/(ρ*ρ)
     end
 end
 

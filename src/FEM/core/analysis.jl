@@ -1,30 +1,13 @@
-# analysis.jl - displacement and stress computation
+# analysis.jl - stress computation and post-processing utilities
 """
-Displacement and stress computation utilities that work for both 2D and 3D
-analyses.
+Stress computation and post-processing utilities for FEM analysis.
+Includes element and nodal stress computation, energy calculations,
+and stress transformations (von Mises, principal stresses).
 """
 
-export solve_displacements, compute_element_stresses, compute_nodal_stresses
-export compute_strain_energy, compute_compliance, extract_displacements
-export compute_von_mises_stress, compute_principal_stresses
-
-"""
-solve_displacements(K, f)
-
-Solve the linear system `K * u = f` for the displacement vector.
-"""
-function solve_displacements(K, f)
-    try
-        return K \ f
-    catch e
-        @warn "Direct solver failed: $e"
-        return pinv(K) * f
-    end
-end
-
-# -----------------------------------------------------------------------------
+# =============================================================================
 # Element-level stress evaluation
-# -----------------------------------------------------------------------------
+# =============================================================================
 
 """
 compute_element_stresses(mesh, material, displacements, element_id, analysis_type)
@@ -44,21 +27,11 @@ function compute_element_stresses(
 ) where {T}
 
     element = mesh.elements[element_id]
-
-    coords = zeros(T, 2, 4)
-    for (local_id, node_id) in enumerate(element.nodes)
-        coord = mesh.nodes[node_id].coords
-        coords[1, local_id] = coord[1]
-        coords[2, local_id] = coord[2]
-    end
+    coords = get_element_coords(mesh, element)
 
     _, dN_dξ, dN_dη = quad4_shape_functions(T(ξ), T(η))
+    J, detJ, invJ = compute_jacobian_2d(coords, dN_dξ, dN_dη)
     dN_nat = hcat(dN_dξ, dN_dη)'
-    J = coords * dN_nat'
-    detJ = det(J)
-    detJ <= zero(detJ) && error("Quad4 element has non-positive Jacobian determinant")
-
-    invJ = inv(J)
     dN_cart = invJ * dN_nat
     dN_dx = view(dN_cart, 1, :)
     dN_dy = view(dN_cart, 2, :)
@@ -86,43 +59,18 @@ function compute_element_stresses(
 ) where {T}
 
     element = mesh.elements[element_id]
-
-    coords = zeros(T, 3, 8)
-    for (local_id, node_id) in enumerate(element.nodes)
-        coord = mesh.nodes[node_id].coords
-        coords[1, local_id] = coord[1]
-        coords[2, local_id] = coord[2]
-        coords[3, local_id] = coord[3]
-    end
+    coords = get_element_coords(mesh, element)
 
     _, dN_dξ, dN_dη, dN_dζ = hex8_shape_functions(T(ξ), T(η), T(ζ))
 
-    J = zeros(T, 3, 3)
-    for i in 1:8
-        J[1, 1] += coords[1, i] * dN_dξ[i]
-        J[1, 2] += coords[1, i] * dN_dη[i]
-        J[1, 3] += coords[1, i] * dN_dζ[i]
-        J[2, 1] += coords[2, i] * dN_dξ[i]
-        J[2, 2] += coords[2, i] * dN_dη[i]
-        J[2, 3] += coords[2, i] * dN_dζ[i]
-        J[3, 1] += coords[3, i] * dN_dξ[i]
-        J[3, 2] += coords[3, i] * dN_dη[i]
-        J[3, 3] += coords[3, i] * dN_dζ[i]
-    end
-
-    detJ = det(J)
-    detJ <= zero(detJ) && error("Hex8 element has non-positive Jacobian determinant")
-
-    invJ = inv(J)
-    dN_dx = zeros(T, 8)
-    dN_dy = zeros(T, 8)
-    dN_dz = zeros(T, 8)
-
-    for i in 1:8
-        dN_dx[i] = invJ[1, 1] * dN_dξ[i] + invJ[1, 2] * dN_dη[i] + invJ[1, 3] * dN_dζ[i]
-        dN_dy[i] = invJ[2, 1] * dN_dξ[i] + invJ[2, 2] * dN_dη[i] + invJ[2, 3] * dN_dζ[i]
-        dN_dz[i] = invJ[3, 1] * dN_dξ[i] + invJ[3, 2] * dN_dη[i] + invJ[3, 3] * dN_dζ[i]
-    end
+    J, detJ, invJ = compute_jacobian_3d(coords, dN_dξ, dN_dη, dN_dζ)
+    
+    # Transform derivatives to physical coordinates
+    dN_nat = hcat(dN_dξ, dN_dη, dN_dζ)
+    dN_cart = (invJ * dN_nat')'
+    dN_dx = @view dN_cart[:, 1]
+    dN_dy = @view dN_cart[:, 2]
+    dN_dz = @view dN_cart[:, 3]
 
     B = hex8_B_matrix(dN_dx, dN_dy, dN_dz)
     elem_dofs = get_element_dofs(mesh, element)

@@ -53,7 +53,7 @@ function init(problem; params=ADMMParams(), comm=nothing)
     # Create state with Nothing context initially
     state = ADMMState(problem, comm, rank, nprocs,
                       0, 0, Float64[], Float64[], Float64[], Float64[], Float64[], 
-                      Float64[], Float64[], nothing, params)
+                      Float64[], nothing, params)
     
     # setup! returns properly-typed state
     state = setup!(state)

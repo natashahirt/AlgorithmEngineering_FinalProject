@@ -9,8 +9,8 @@ function check_convergence!(state::ADMMState)
     ρ = params.ρ
 
     # get residuals
-    @. state.r = state.x - state.z
-    r2_local = dot(state.r, state.r)
+    @. state.primal_res = state.x - state.z
+    r2_local = dot(state.primal_res, state.primal_res)
     x2_local = dot(state.x, state.x)
     u2_local = dot(state.u, state.u)
 
