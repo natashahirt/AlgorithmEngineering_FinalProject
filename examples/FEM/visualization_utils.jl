@@ -19,6 +19,19 @@ const HEX8_FACES = (
     (2, 3, 7, 6)   # Right face (x = x_max)
 )
 
+const TET4_EDGE_PAIRS = (
+    (1, 2), (1, 3), (1, 4),
+    (2, 3), (2, 4),
+    (3, 4)
+)
+
+const TET4_FACES = (
+    (1, 2, 3),
+    (1, 2, 4),
+    (1, 3, 4),
+    (2, 3, 4)
+)
+
 """
     compute_fem_visualization_data(mesh, displacements; scale=1.0)
 
@@ -214,11 +227,24 @@ function create_fem_deformation_figure_3d(data;
                 ylabel="y [m]",
                 zlabel="z [m]")
 
+    # Determine element topology (Hex8 or Tet4 currently supported)
+    first_element = first(data.elements)
+    node_count = length(first_element.nodes)
+    is_hex = node_count == 8
+    is_tet = node_count == 4
+    is_hex || is_tet || error("Unsupported element topology with $(node_count) nodes for visualization")
+
     # Draw edges for undeformed mesh (wireframe)
-    _draw_hex8_edges!(ax1, data.elements,
-                      data.x_orig, data.y_orig, data.z_orig;
-                      color=:black, linewidth=1.0)
-    
+    if is_hex
+        _draw_hex8_edges!(ax1, data.elements,
+                          data.x_orig, data.y_orig, data.z_orig;
+                          color=:black, linewidth=1.0)
+    else
+        _draw_tet4_edges!(ax1, data.elements,
+                          data.x_orig, data.y_orig, data.z_orig;
+                          color=:black, linewidth=1.0)
+    end
+
     # Draw nodes for undeformed mesh
     if show_nodes
         scatter!(ax1,
@@ -244,14 +270,21 @@ function create_fem_deformation_figure_3d(data;
                 zlabel="z [m]")
 
     # Draw colored faces for deformed mesh
-    _draw_hex8_faces!(ax2, data.elements,
-                      data.x_deformed, data.y_deformed, data.z_deformed, data.u_magnitude;
-                      colormap=colormap, colorrange=limits)
-    
-    # Draw thin black edges on top of colored faces
-    _draw_hex8_edges!(ax2, data.elements,
-                      data.x_deformed, data.y_deformed, data.z_deformed;
-                      color=:black, linewidth=0.5)
+    if is_hex
+        _draw_hex8_faces!(ax2, data.elements,
+                          data.x_deformed, data.y_deformed, data.z_deformed, data.u_magnitude;
+                          colormap=colormap, colorrange=limits)
+        _draw_hex8_edges!(ax2, data.elements,
+                          data.x_deformed, data.y_deformed, data.z_deformed;
+                          color=:black, linewidth=0.5)
+    else
+        _draw_tet4_faces!(ax2, data.elements,
+                          data.x_deformed, data.y_deformed, data.z_deformed, data.u_magnitude;
+                          colormap=colormap, colorrange=limits)
+        _draw_tet4_edges!(ax2, data.elements,
+                          data.x_deformed, data.y_deformed, data.z_deformed;
+                          color=:black, linewidth=0.8)
+    end
     
     # Mark load point with red dot on deformed mesh
     if !isnothing(load_node)
@@ -294,6 +327,17 @@ function _draw_hex8_edges!(ax, elements, x, y, z; color, linewidth)
     end
 end
 
+function _draw_tet4_edges!(ax, elements, x, y, z; color, linewidth)
+    for element in elements
+        node_ids = Tuple(element.nodes)
+        for (a, b) in TET4_EDGE_PAIRS
+            pa = Point3f(x[node_ids[a]], y[node_ids[a]], z[node_ids[a]])
+            pb = Point3f(x[node_ids[b]], y[node_ids[b]], z[node_ids[b]])
+            linesegments!(ax, [pa, pb]; color=color, linewidth=linewidth)
+        end
+    end
+end
+
 function _draw_hex8_faces!(ax, elements, x, y, z, u_magnitude; colormap, colorrange)
     # Build a map of faces to track which are on the exterior
     face_map = Dict{Set{Int}, Tuple{Vector{Point3f}, Float64}}()
@@ -323,10 +367,39 @@ function _draw_hex8_faces!(ax, elements, x, y, z, u_magnitude; colormap, colorra
     
     # Draw only exterior faces
     for (points, u_avg) in values(face_map)
-        mesh_obj = GeometryBasics.Mesh(points, [GeometryBasics.QuadFace(1, 2, 3, 4)])
-        mesh!(ax, mesh_obj; 
-              color=u_avg, 
-              colormap=colormap, 
+            mesh_obj = GeometryBasics.Mesh(points, [GeometryBasics.QuadFace(1, 2, 3, 4)])
+            mesh!(ax, mesh_obj; 
+                  color=u_avg, 
+                  colormap=colormap, 
+                  colorrange=colorrange)
+    end
+end
+
+function _draw_tet4_faces!(ax, elements, x, y, z, u_magnitude; colormap, colorrange)
+    face_map = Dict{Set{Int}, Tuple{Vector{Point3f}, Float64}}()
+
+    for element in elements
+        node_ids = Tuple(element.nodes)
+        u_elem = [u_magnitude[nid] for nid in node_ids]
+        u_avg = sum(u_elem) / length(u_elem)
+
+        for face_nodes in TET4_FACES
+            face_key = Set(node_ids[i] for i in face_nodes)
+            points = [Point3f(x[node_ids[i]], y[node_ids[i]], z[node_ids[i]]) for i in face_nodes]
+
+            if haskey(face_map, face_key)
+                delete!(face_map, face_key)
+            else
+                face_map[face_key] = (points, u_avg)
+            end
+        end
+    end
+
+    for (points, u_avg) in values(face_map)
+        mesh_obj = GeometryBasics.Mesh(points, [GeometryBasics.TriangleFace(1, 2, 3)])
+        mesh!(ax, mesh_obj;
+              color=u_avg,
+              colormap=colormap,
               colorrange=colorrange)
     end
 end

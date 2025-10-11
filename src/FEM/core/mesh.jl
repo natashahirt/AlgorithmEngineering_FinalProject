@@ -44,18 +44,6 @@ struct Hex8{T} <: Element{:Hex8,T}
 end
 
 """
-Tet4{T}
-
-4-node tetrahedral element for 3D finite element analysis.
-Preferred for nonlinear analysis and complex geometries.
-"""
-struct Tet4{T} <: Element{:Tet4,T}
-    id::Int
-    nodes::SVector{4,Int}
-    material_id::Int
-end
-
-"""
 Mesh{dim,T,ElementType}
 
 Finite element mesh with nodes and elements.
@@ -296,112 +284,6 @@ function generate_hexahedral_mesh(length, width, height, nx, ny, nz)
     )
 
     return Mesh{3,Float64,:Hex8}(nodes, elements, boundary_nodes)
-end
-
-"""
-generate_tetrahedral_mesh(width, height, depth, nx, ny, nz)
-
-Generate structured tetrahedral mesh by subdividing hexahedra into 5 tets each.
-Each hexahedral cell is split into 5 tetrahedra following a consistent pattern.
-"""
-function generate_tetrahedral_mesh(
-    width::Real,
-    height::Real,
-    depth::Real,
-    nx::Int,
-    ny::Int,
-    nz::Int
-)
-    nx > 0 && ny > 0 && nz > 0 || error("nx, ny, nz must be positive")
-    
-    hx = width / nx
-    hy = height / ny
-    hz = depth / nz
-    
-    nnx = nx + 1
-    nny = ny + 1
-    nnz = nz + 1
-    total_nodes = nnx * nny * nnz
-    
-    # Generate nodes
-    nodes = Vector{Node{3,Float64}}(undef, total_nodes)
-    left, right, bottom, top, front, back = Int[], Int[], Int[], Int[], Int[], Int[]
-    
-    for k in 0:nz
-        z = k * hz
-        for j in 0:ny
-            y = j * hy
-            for i in 0:nx
-                x = i * hx
-                nid = k * (nnx * nny) + j * nnx + i + 1
-                coords = SVector{3,Float64}(x, y, z)
-                dofs = [3 * (nid - 1) + 1, 3 * (nid - 1) + 2, 3 * (nid - 1) + 3]
-                nodes[nid] = Node{3,Float64}(nid, coords, dofs)
-                
-                if i == 0
-                    push!(left, nid)
-                elseif i == nx
-                    push!(right, nid)
-                end
-                
-                if j == 0
-                    push!(bottom, nid)
-                elseif j == ny
-                    push!(top, nid)
-                end
-                
-                if k == 0
-                    push!(front, nid)
-                elseif k == nz
-                    push!(back, nid)
-                end
-            end
-        end
-    end
-    
-    # Generate tetrahedral elements (5 tets per hex)
-    num_elements = nx * ny * nz * 5
-    elements = Vector{Element{:Tet4,Float64}}(undef, num_elements)
-    
-    eid = 1
-    for k in 1:nz
-        for j in 1:ny
-            for i in 1:nx
-                # Hex node numbering
-                n1 = (k-1) * (nnx * nny) + (j-1) * nnx + i
-                n2 = (k-1) * (nnx * nny) + (j-1) * nnx + i + 1
-                n3 = (k-1) * (nnx * nny) + j * nnx + i + 1
-                n4 = (k-1) * (nnx * nny) + j * nnx + i
-                n5 = k * (nnx * nny) + (j-1) * nnx + i
-                n6 = k * (nnx * nny) + (j-1) * nnx + i + 1
-                n7 = k * (nnx * nny) + j * nnx + i + 1
-                n8 = k * (nnx * nny) + j * nnx + i
-                
-                # Split hex into 5 tets (standard subdivision pattern)
-                elements[eid] = Tet4{Float64}(eid, SVector{4,Int}(n1, n2, n4, n5), 1)
-                eid += 1
-                elements[eid] = Tet4{Float64}(eid, SVector{4,Int}(n2, n3, n4, n7), 1)
-                eid += 1
-                elements[eid] = Tet4{Float64}(eid, SVector{4,Int}(n2, n5, n6, n7), 1)
-                eid += 1
-                elements[eid] = Tet4{Float64}(eid, SVector{4,Int}(n4, n5, n7, n8), 1)
-                eid += 1
-                elements[eid] = Tet4{Float64}(eid, SVector{4,Int}(n2, n4, n5, n7), 1)
-                eid += 1
-            end
-        end
-    end
-    
-    boundary_nodes = Dict(
-        "left" => left,
-        "right" => right,
-        "bottom" => bottom,
-        "top" => top,
-        "front" => front,
-        "back" => back
-    )
-    
-    return Mesh{3,Float64,:Tet4}(nodes, elements, boundary_nodes)
 end
 
 # =============================================================================
