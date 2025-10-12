@@ -160,11 +160,6 @@ end
 
 get_node_dofs(node::Node) = node.dofs
 
-"""
-get_element_dofs(mesh::Mesh, element)
-
-Get global DOF indices for element.
-"""
 function get_element_dofs(mesh::Mesh, element)
     dofs = Int[]
     for nid in element.nodes
@@ -338,4 +333,50 @@ function get_element_coords(mesh::Mesh{dim,T}, element) where {dim,T}
         coords[:, local_id] = mesh.nodes[node_id].coords
     end
     return coords
+end
+
+"""
+get_mesh_centroids(mesh::Mesh)
+
+Extract centroids of all elements in the mesh.
+Returns a dim × nel matrix where each column is an element's centroid.
+"""
+function get_mesh_centroids(mesh::Mesh{dim,T}) where {dim,T}
+    nel = length(mesh.elements)
+    centroids = zeros(T, dim, nel)
+    for (local_id, element) in enumerate(mesh.elements)
+        centroids[:, local_id] = vec(mean(get_element_coords(mesh, element), dims=2))
+    end
+    return centroids
+end
+
+"""
+get_mesh_volumes(mesh::Mesh)
+
+Compute volumes (areas in 2D) for all elements in the mesh.
+Returns a vector containing the volume/area of each element.
+"""
+function get_mesh_volumes(mesh::Mesh{2,T,:Quad4}) where T
+    volumes = zeros(T, length(mesh.elements))
+    for (i, element) in enumerate(mesh.elements)
+        coords = get_element_coords(mesh, element)
+        # Compute area using cross product of diagonals
+        diag1 = coords[:,3] - coords[:,1]  # v13
+        diag2 = coords[:,4] - coords[:,2]  # v24
+        volumes[i] = abs(diag1[1]*diag2[2] - diag1[2]*diag2[1])/2
+    end
+    return volumes
+end
+
+function get_mesh_volumes(mesh::Mesh{3,T,:Hex8}) where T
+    volumes = zeros(T, length(mesh.elements))
+    for (i, element) in enumerate(mesh.elements)
+        coords = get_element_coords(mesh, element)
+        # Compute volume using triple product of three edges from one vertex
+        v1 = coords[:,2] - coords[:,1]  # edge vector 1-2
+        v2 = coords[:,4] - coords[:,1]  # edge vector 1-4
+        v3 = coords[:,5] - coords[:,1]  # edge vector 1-5
+        volumes[i] = abs(dot(v1, cross(v2, v3)))/6
+    end
+    return volumes
 end

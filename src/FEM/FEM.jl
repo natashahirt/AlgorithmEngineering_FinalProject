@@ -30,6 +30,7 @@ export generate_rectangular_mesh, generate_hexahedral_mesh
 # Mesh utilities
 export get_nodes, get_elements, get_boundary_nodes, get_node_dofs, get_element_dofs
 export get_dofs_per_node, compute_global_dof, get_node_local_dofs, get_element_coords
+export get_mesh_centroids, get_mesh_volumes
 
 # Element computations
 export compute_element_stiffness, shape_functions
@@ -48,7 +49,7 @@ export create_fixed_support, create_roller_support, create_point_load
 export collect_dirichlet_constraints, collect_neumann_loads
 
 # Solvers
-export solve_displacements
+export solve_displacements, solve_fem
 
 # Post-processing
 export compute_element_stresses, compute_nodal_stresses

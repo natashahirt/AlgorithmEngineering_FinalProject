@@ -17,3 +17,17 @@ function solve_displacements(K, f)
         return pinv(K) * f
     end
 end
+
+function solve_fem(K::AbstractMatrix{T}, f::AbstractVector{T}, boundary_dofs::AbstractVector{<:Integer}; prescribed_values::Union{Nothing, AbstractVector{T}}=nothing) where {T}
+
+    if isnothing(prescribed_values)
+        prescribed_values = zeros(T, length(boundary_dofs))
+    end
+
+    K_mod, f_mod = apply_boundary_conditions(K, f, boundary_dofs, prescribed_values) # Apply Dirichlet boundary conditions (zero out the fixed DOFs)
+    
+    U = solve_displacements(K_mod, f_mod)
+
+    return U
+
+end

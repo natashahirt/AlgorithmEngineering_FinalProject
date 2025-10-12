@@ -26,16 +26,23 @@ assemble_stiffness_matrix(mesh, material, analysis_type; kwargs...)
 Assemble the global stiffness matrix for a mesh. Generic implementation that
 works for all element types through multiple dispatch on compute_element_stiffness.
 
+Optionally takes density vector ρ from topopt and assembles the stiffness matrix K using
+SIMP: K_e(ρ_e) = E_e(ρ_e) * K_0, where E_e(ρ_e) = E_min + ρ_e^p_simp * (E_0 - E_min)
+
 # Performance optimization: Preallocates triplet arrays based on mesh structure.
 """
 function assemble_stiffness_matrix(
     mesh::Mesh{dim,T,EType},
     material::LinearElastic{T},
     analysis_type;
+    ρ::Union{Nothing, AbstractVector{T}} = nothing, # density per element, if given
+    ρ_simp::T = T(3.0), # default SIMP penalty
+    E_min::T = T(1e-9), # minimum stiffness
     kwargs...
 ) where {dim,T,EType}
     
     ndof = maximum(last(node.dofs) for node in mesh.nodes)
+    E_0 = material.E
     
     # Preallocate triplet arrays based on mesh structure
     nnz_estimate = estimate_nnz(mesh)
@@ -44,9 +51,18 @@ function assemble_stiffness_matrix(
     values = Vector{T}(undef, nnz_estimate)
     
     idx = 1
-    for element in mesh.elements
+    for (e_idx, element) in enumerate(mesh.elements)
         # Compute element stiffness (dispatches based on element type)
         Ke = compute_element_stiffness(mesh, element, material, analysis_type; kwargs...)
+
+        if !isnothing(ρ)
+            ρ_e = ρ[e_idx]
+            E_e = E_min + ρ_e^ρ_simp * (E_0 - E_min)
+            scale_factor = E_e / E_0 # relative to base material
+
+            Ke = scale_factor .* Ke
+        end
+
         elem_dofs = get_element_dofs(mesh, element)
         
         # Add element contributions to triplet arrays
