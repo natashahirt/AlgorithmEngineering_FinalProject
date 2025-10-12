@@ -61,6 +61,54 @@ function quad4_B_matrix(dN_dx, dN_dy)
 end
 
 """
+compute_B_matrix(mesh, element, analysis_type, ξ=0, η=0, ζ=0)
+
+Compute strain-displacement matrix B at specified natural coordinates.
+Default evaluation is at element center (ξ=η=ζ=0).
+"""
+function compute_B_matrix(
+    mesh::Mesh{2,T,:Quad4},
+    element::Quad4{T},
+    ::Union{PlaneStress, PlaneStrain},
+    ξ::T = zero(T),
+    η::T = zero(T)
+) where {T}
+    coords = get_element_coords(mesh, element)
+    
+    _, dN_dξ, dN_dη = quad4_shape_functions(ξ, η)
+    J, detJ, invJ = compute_jacobian_2d(coords, dN_dξ, dN_dη)
+    dN_nat = hcat(dN_dξ, dN_dη)'
+    dN_cart = invJ * dN_nat
+    dN_dx = view(dN_cart, 1, :)
+    dN_dy = view(dN_cart, 2, :)
+    
+    return quad4_B_matrix(dN_dx, dN_dy)
+end
+
+"""
+compute_element_strain!(ϵ_buffer, mesh, element, u_elem, analysis_type)
+
+Compute element strain vector: ε = B * u_elem
+Evaluates at element centroid (ξ=0, η=0) for Quad4.
+Dispatches on analysis type (PlaneStress or PlaneStrain).
+"""
+function compute_element_strain!(
+    ϵ_buffer::AbstractMatrix{T},
+    mesh::Mesh{2,T,:Quad4},
+    element::Quad4{T},
+    u_elem::AbstractVector{T},
+    analysis_type::Union{PlaneStress, PlaneStrain}
+) where {T}
+    # Compute B matrix at element center
+    B = compute_B_matrix(mesh, element, analysis_type)
+    
+    # Compute strain: ε = B * u
+    mul!(ϵ_buffer, B, u_elem)
+    
+    return nothing
+end
+
+"""
 compute_element_stiffness(mesh, element, material, analysis_type; thickness=1)
 
 Compute 8×8 stiffness matrix for Quad4 element using 2×2 Gauss quadrature.
@@ -208,6 +256,56 @@ function hex8_B_matrix(dN_dx, dN_dy, dN_dz)
         B[6, col + 2] = dN_dx[i]
     end
     return B
+end
+
+"""
+compute_B_matrix(mesh, element, analysis_type, ξ=0, η=0, ζ=0)
+
+Compute strain-displacement matrix B at specified natural coordinates for 3D.
+Default evaluation is at element center (ξ=η=ζ=0).
+"""
+function compute_B_matrix(
+    mesh::Mesh{3,T,:Hex8},
+    element::Hex8{T},
+    ::ThreeDimensional,
+    ξ::T = zero(T),
+    η::T = zero(T),
+    ζ::T = zero(T)
+) where {T}
+    coords = get_element_coords(mesh, element)
+    
+    _, dN_dξ, dN_dη, dN_dζ = hex8_shape_functions(ξ, η, ζ)
+    J, detJ, invJ = compute_jacobian_3d(coords, dN_dξ, dN_dη, dN_dζ)
+    dN_nat = hcat(dN_dξ, dN_dη, dN_dζ)
+    dN_cart = (invJ * dN_nat')'
+    dN_dx = @view dN_cart[:, 1]
+    dN_dy = @view dN_cart[:, 2]
+    dN_dz = @view dN_cart[:, 3]
+    
+    return hex8_B_matrix(dN_dx, dN_dy, dN_dz)
+end
+
+"""
+compute_element_strain!(ϵ_buffer, mesh, element, u_elem, analysis_type)
+
+Compute element strain vector: ε = B * u_elem
+Evaluates at element centroid (ξ=η=ζ=0) for Hex8.
+Dispatches on analysis type (ThreeDimensional).
+"""
+function compute_element_strain!(
+    ϵ_buffer::AbstractMatrix{T},
+    mesh::Mesh{3,T,:Hex8},
+    element::Hex8{T},
+    u_elem::AbstractVector{T},
+    analysis_type::ThreeDimensional
+) where {T}
+    # Compute B matrix at element center
+    B = compute_B_matrix(mesh, element, analysis_type)
+    
+    # Compute strain: ε = B * u
+    mul!(ϵ_buffer, B, u_elem)
+    
+    return nothing
 end
 
 """

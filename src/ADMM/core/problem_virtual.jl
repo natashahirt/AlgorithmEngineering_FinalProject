@@ -20,9 +20,9 @@ function evaluate_global_regularizer(problem, z)
 end
 
 # default is no-op
-# problem-specific implementations should rebuild ρ-dependent caches
-function _admm_rho_changed!(state::ADMMState)
-    println("using default _admm_rho_changed! (no-op). If caches need to be rebuilt, make sure you implement it.")
+# problem-specific implementations should rebuild μ-dependent caches
+function _admm_mu_changed!(state::ADMMState)
+    println("using default _admm_mu_changed! (no-op). If caches need to be rebuilt, make sure you implement it.")
     return nothing
 end
 

@@ -6,20 +6,20 @@ default _x_update!(state::ADMMState)
 for custom, override, e.g. _x_update!(state::ADMMState{LeastSquaresProblem})
 """
 function _x_update!(state::ADMMState)
-# solve argmin_x f_i(x) + (ρ/2)||x - (z - u)||²
+# solve argmin_x f_i(x) + (μ/2)||x - (z - u)||²
 # write into state.x
     
     params = state.params
-    ρ = params.ρ
+    μ = params.μ
 
     # get the target: x should approximate (z - u)
     target = state.z .- state.u
 
     # get augmented lagrangian
-    # f_i(x) + (ρ/2)||x - (z - u)||²
+    # f_i(x) + (μ/2)||x - (z - u)||²
     function augmented_lagrangian(x)
         f_val = objective_local(state, x)
-        quad_penalty = (ρ/2) * norm(x - target)^2
+        quad_penalty = (μ/2) * norm(x - target)^2
         return f_val + quad_penalty
     end
 
@@ -74,10 +74,10 @@ end
 
 function _apply_proximal!(state::ADMMState, ::NumericalProx)
     # numerical optimization for non-standard regularizers 
-    # solve: z = prox_{g, Np}(x̄ + ū)
-    # same as argmin_z { g(z) + (Nρ/2)||z - (x̄ + ū)||² }
+    # solve: z = prox_{g, Nμ}(x̄ + ū)
+    # same as argmin_z { g(z) + (Nμ/2)||z - (x̄ + ū)||² }
 
-    μ = state.nprocs * state.params.ρ # Nρ
+    penalty = state.nprocs * state.params.μ # Nμ
     center = state.z
 
     # Default prox: identity (g ≡ 0). If a problem overrides evaluate_global_regularizer,
@@ -85,7 +85,7 @@ function _apply_proximal!(state::ADMMState, ::NumericalProx)
     function proximal_objective(z)
         g_val = evaluate_global_regularizer(state.problem, z)
         # center is state.z already
-        return g_val + (μ/2) * norm(z .- center)^2
+        return g_val + (penalty/2) * norm(z .- center)^2
     end
 
     result = optimize(proximal_objective, state.z,

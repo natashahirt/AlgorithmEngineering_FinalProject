@@ -56,6 +56,7 @@ Base.@kwdef mutable struct TopOptContext{T <: AbstractFloat}
     f::Vector{T} # force vector
 
     # element level stress values
+    σ::Matrix{T} # full stress components for all elements (stress_size × nel)
     σ̄::Vector{T} # von Mises stress per element σ̄_e
     σ̃::Vector{T} # relaxed stress per element σ̃_e 
 
@@ -70,7 +71,7 @@ Base.@kwdef mutable struct TopOptContext{T <: AbstractFloat}
     # work buffers to prevent allocations
     K_elem_buffer::Matrix{T} # stiffness matrix buffer (reused for each element)
     ϵ_buffer::Matrix{T} # strain buffer (reused for each element)
-    σ_buffer::Matrix{T} # stress buffer (reused for each element)
+    # σ_buffer::Matrix{T} # stress buffer (reused for each element) -- add if we do things on the fly later on
 
 end
 
@@ -153,6 +154,7 @@ function ADMM.setup!(state::ADMM.ADMMState{TopOptProblem{D}, Nothing}) where {D}
         U = zeros(T, ndof),
         K = spzeros(T, ndof, ndof),
         f = f_global,
+        σ = zeros(T, stress_size, nel), # stress_size × nel matrix
         σ̄ = zeros(T, nel),
         σ̃ = zeros(T, nel),
         H = H,
@@ -161,7 +163,7 @@ function ADMM.setup!(state::ADMM.ADMMState{TopOptProblem{D}, Nothing}) where {D}
         λ_adjoint = zeros(T, ndof),
         K_elem_buffer = zeros(T, elem_dof, elem_dof),
         ϵ_buffer = zeros(T, strain_size, 1),
-        σ_buffer = zeros(T, stress_size, 1)
+        # σ_buffer = zeros(T, stress_size, 1)
     )
 
     return ADMM.ADMMState(
@@ -174,25 +176,32 @@ function ADMM.setup!(state::ADMM.ADMMState{TopOptProblem{D}, Nothing}) where {D}
 
 end
 
-function mma_loop(problem::TopOptProblem{D,T}) where {D,T}
+function mma_loop(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext{T}}) where {D,T}
 
-    # build stiffness matrix
-    mesh = problem.mesh
-    material = problem.material
-    ctx = problem.ctx
+    problem = state.problem
+    ctx = state.ctx
 
-    apply_density_filter!(problem) # in place update ϕ → ρ
-    # build stiffness matrix using new ρ
-    ctx.K = assemble_stiffness_matrix(mesh, material, problem.analysis_type, 
-                                      ρ=ctx.ρ, 
-                                      ρ_simp = problem.ρ_simp,
-                                      E_min = problem.ρ_min * problem.material.E)    
-    # solve FEM
-    ctx.U = solve_fem(ctx.K, ctx.f, problem.boundary_dofs)
-    # get stresses σ
+    # ϕ → ρ: apply density filter and Heaviside projection (in-place update)
+    apply_density_filter!(state)
+    
+    # build stiffness matrix K(ρ) with SIMP interpolation
+    ctx.K = FEM.assemble_stiffness_matrix(
+        problem.mesh, 
+        problem.material, 
+        problem.analysis_type;
+        ρ = ctx.ρ, 
+        ρ_simp = problem.ρ_simp,
+        E_min = problem.ρ_min * problem.material.E
+    )
+    
+    # solve FEM: K(ρ)U = f with boundary conditions
+    ctx.U = FEM.solve_fem(ctx.K, ctx.f, problem.boundary_dofs)
+    
+    # Compute element stresses σ̄ (von Mises) and σ̃ (relaxed)
+    compute_element_stresses!(state)
+    
+    # compute gradients ∇L using adjoint method ∂L/∂ϕ 
+    compute_gradients_adjoint!(state)
 
-    # compute stresses σ̄, σ̃
-
-    # compute gradients ∇L
-
+    
 end

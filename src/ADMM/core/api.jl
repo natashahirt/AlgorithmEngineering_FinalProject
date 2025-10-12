@@ -18,8 +18,8 @@ function _step!(state::ADMMState)
     # check convergence
     residual_primal, residual_dual, epsilon_primal, epsilon_dual = check_convergence!(state)
 
-    # adaptive ρ adjustment
-    maybe_adapt_rho!(state, residual_primal, residual_dual)
+    # adaptive μ adjustment
+    maybe_adapt_mu!(state, residual_primal, residual_dual)
 
     # is it converged?
     converged = (residual_primal <= epsilon_primal) && (residual_dual <= epsilon_dual)

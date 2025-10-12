@@ -16,11 +16,11 @@ println("True solution sparsity: $(count(!iszero, x_true))/$n")
 
 # ADMM parameters
 params = ADMMParams(
-    ρ = 1.0,
+    μ = 1.0,
     reltol = 1e-3,
     abstol = 1e-4,
     α = 1.0,
-    adaptive_ρ = true
+    adaptive_μ = true
 )
 
 # solve problem

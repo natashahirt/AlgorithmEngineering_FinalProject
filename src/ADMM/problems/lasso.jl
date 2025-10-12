@@ -39,7 +39,7 @@ function ADMM.setup!(state::ADMM.ADMMState{LassoProblem{D}, C}) where {D, C}
     problem = state.problem
     A = problem.A
     b = problem.b
-    ρ = state.params.ρ
+    μ = state.params.μ
     
     # Dims
     m, n = size(A)
@@ -59,12 +59,12 @@ function ADMM.setup!(state::ADMM.ADMMState{LassoProblem{D}, C}) where {D, C}
     if skinny
         M = A' * A
         for i in 1:n
-            M[i,i] += ρ
+            M[i,i] += μ
         end
         L = cholesky(Symmetric(M, :L)).L
         ctx = LassoContext(A′b, L, skinny, zeros(m), zeros(m))
     else
-        M = (1/ρ) * (A * A')
+        M = (1/μ) * (A * A')
         for i in 1:m
             M[i,i] += 1.0
         end
@@ -90,19 +90,19 @@ function ADMM.evaluate_global_regularizer(problem::LassoProblem, z)
     return problem.λ * norm(z, 1)
 end
 
-function ADMM._admm_rho_changed!(state::ADMM.ADMMState{LassoProblem{D}, LassoContext}) where D
+function ADMM._admm_mu_changed!(state::ADMM.ADMMState{LassoProblem{D}, LassoContext}) where D
     A = state.problem.A
     m, n = size(A)
-    ρ = state.params.ρ
+    μ = state.params.μ
     ctx = state.ctx
 
     if ctx.skinny
         M = A' * A
-        @inbounds @views for i in 1:n; M[i,i] += ρ; end
+        @inbounds @views for i in 1:n; M[i,i] += μ; end
         ctx.L = cholesky!(Symmetric(M, :L)).L
     else
         M = A * A'
-        LinearAlgebra.scale!(M, 1/ρ)
+        LinearAlgebra.scale!(M, 1/μ)
         @inbounds @views for i in 1:m; M[i,i] += 1.0; end
         ctx.L = cholesky!(Symmetric(M, :L)).L
     end
@@ -111,32 +111,32 @@ end
 
 # closed form updates
 function ADMM._x_update!(state::ADMM.ADMMState{LassoProblem{D}, LassoContext}) where D
-    ρ = state.params.ρ
+    μ = state.params.μ
     ctx = state.ctx
     A = state.problem.A
 
     # Compute RHS vector (local variable, no need to store in state)
-    rhs = ρ * (state.z .- state.u) .+ ctx.A′b
+    rhs = μ * (state.z .- state.u) .+ ctx.A′b
 
     if ctx.skinny
-        # Solve (A'A + ρI)x = rhs using cached Cholesky
+        # Solve (A'A + μI)x = rhs using cached Cholesky
         # Fix: destination, matrix, source
         ldiv!(state.x, ctx.L, rhs)       # state.x = L \ rhs
         ldiv!(state.x, ctx.L', state.x)  # state.x = L' \ x
     else
-        # Woodbury: x = rhs/ρ - (1/ρ²) A' (I + (1/ρ)AA')^(-1) (A*rhs)
+        # Woodbury: x = rhs/μ - (1/μ²) A' (I + (1/μ)AA')^(-1) (A*rhs)
         mul!(ctx.Aq, A, rhs)             # Aq = A * rhs
         ldiv!(ctx.p, ctx.L, ctx.Aq)      # ctx.p = L \ Aq
         ldiv!(ctx.p, ctx.L', ctx.p)      # ctx.p = L' \ p
         mul!(state.x, A', ctx.p)         # x = A' * p
-        @. state.x = rhs/ρ - state.x/(ρ*ρ)
+        @. state.x = rhs/μ - state.x/(μ*μ)
     end
 end
 
 function ADMM._apply_proximal!(state::ADMM.ADMMState{LassoProblem{D}, LassoContext}, ::ADMM.ClosedFormProx) where D
     λ = state.problem.λ
-    μ = state.nprocs * state.params.ρ  # Nρ
-    τ = λ / μ # threshold
+    penalty = state.nprocs * state.params.μ  # Nμ
+    τ = λ / penalty # threshold
     
     # soft-thresholding
     @inbounds for i in eachindex(state.z)

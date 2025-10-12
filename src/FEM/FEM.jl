@@ -33,7 +33,7 @@ export get_dofs_per_node, compute_global_dof, get_node_local_dofs, get_element_c
 export get_mesh_centroids, get_mesh_volumes
 
 # Element computations
-export compute_element_stiffness, shape_functions
+export compute_element_strain!, compute_element_stiffness, shape_functions, compute_B_matrix
 
 # Material models
 export Material, LinearElastic, PlaneStress, PlaneStrain, ThreeDimensional

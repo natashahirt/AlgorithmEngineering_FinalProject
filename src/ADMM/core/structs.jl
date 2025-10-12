@@ -5,11 +5,11 @@ ADMMParams
 - controls parameters for optimizer (penalty, tolerances etc.)
 """
 Base.@kwdef mutable struct ADMMParams # note: kwdef automatically makes all these vars keywords
-    ρ::Float64      = 1.0 # augmented lagrangian param (i.e. a penalty)
+    μ::Float64      = 1.0 # augmented lagrangian penalty param
     reltol::Float64 = 1e-2 # convergence tolerance (relative)
     abstol::Float64 = 1e-4 # convergence tolerance (absolute)
     α::Float64      = 1.0 # over-relaxation parameter (1.0 = off, >1 speeds up convergence)
-    adaptive_ρ::Bool = false # do we automatically adjust ρ?
+    adaptive_μ::Bool = false # do we automatically adjust μ?
 end
 
 """
