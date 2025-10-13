@@ -26,6 +26,12 @@ Base.@kwdef mutable struct TopOptProblem{D <: ADMM.DistributionMode, T <: Abstra
     r_filter::T # stencil radius
     β_heaviside::T # for heaviside filter (to render sharper images)
     η_heaviside::T # threshold for heaviside
+    β_heaviside_growth::T = 2.0 # multiplicative factor when sharpening projection
+    β_heaviside_max::T = 16.0 # cap for heaviside continuation
+    β_update_frequency::Int = 50 # iterations between forced β increase
+    grey_band_lo::T = 0.25 # lower bound for "grey" densities
+    grey_band_hi::T = 0.75 # upper bound for "grey" densities
+    grey_fraction_trigger::T = 0.3 # trigger β growth if grey fraction above this
 
     # numerical stability
     q_relax::T = 0.5 # avoid division by zero for near-void/void elements
@@ -231,30 +237,21 @@ function ADMM._x_update!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext
     
     # Volume constraint: Σ(ρ_i * V_i) / Σ(V_i) ≤ vol_frac
     function volume_constraint(ϕ::Vector, grad::Vector)
-        # s = filtered design var (pre-projection)
         s = (ctx.H * ϕ) ./ ctx.Hs
-
-        # projection to physical density (same as in apply_density_filter!)
+        
         β = problem.β_heaviside
         η = problem.η_heaviside
         denom = tanh(β*η) + tanh(β*(1 - η))
         ρ_phys = (@. (tanh(β*η) + tanh(β*(s - η))) / denom)
-
+        
         total_volume = sum(ctx.volumes)
         current_volume_frac = dot(ρ_phys, ctx.volumes) / total_volume
-
+        
         if length(grad) > 0
-            # derivative of projection wrt s
-            # d/ds tanh(β(s-η)) = β*(1 - tanh(β(s-η))^2)
             dproj_ds = @. (β * (1 - tanh(β*(s - η))^2)) / denom
-
-            # chain rule: ∂ρ/∂ϕ = diag(dproj_ds) * (H ./ Hs)
-            # gradient of Vfrac = (1/Total) * (∂ρ/∂ϕ)^T * V
-            # i.e., grad = (H' * ((dproj_ds .* V) ./ Hs)) / Total
             grad .= (ctx.H' * ((dproj_ds .* ctx.volumes) ./ ctx.Hs)) / total_volume
         end
-
-        # inequality g(ϕ) ≤ 0
+        
         return current_volume_frac - problem.vol_frac
     end
     
@@ -412,6 +409,40 @@ function adapt_mu_topopt!(
 
 end
 
+function update_heaviside_sharpness!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext{T}}) where {D,T}
+
+    problem = state.problem
+
+    # already at max sharpness
+    if problem.β_heaviside >= problem.β_heaviside_max
+        return nothing
+    end
+
+    ctx = state.ctx
+    nel = ctx.nel
+
+    grey_count = count(ctx.ρ) do ρ_val
+        problem.grey_band_lo < ρ_val < problem.grey_band_hi
+    end
+
+    grey_fraction = nel == 0 ? zero(T) : T(grey_count) / T(nel)
+
+    schedule_hit = problem.β_update_frequency > 0 && mod(state.iter, problem.β_update_frequency) == 0
+    exceeds_grey = grey_fraction > problem.grey_fraction_trigger
+
+    if !(schedule_hit || exceeds_grey)
+        return nothing
+    end
+
+    new_beta = min(problem.β_heaviside * problem.β_heaviside_growth, problem.β_heaviside_max)
+
+    if new_beta > problem.β_heaviside
+        problem.β_heaviside = new_beta
+    end
+
+    return nothing
+end
+
 # custom run_admm! because we need to have our special convergence checks that aren't
 # compatible with the generic version...
 function ADMM._step!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext{T}}) where {D,T}
@@ -431,10 +462,8 @@ function ADMM._step!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext{T}}
     # check convergence
     residual_primal, residual_dual, epsilon_primal, epsilon_dual, topopt_converged = ADMM.check_convergence!(state)
 
-    # Adaptive β every 50 iterations (pseudocode lines 17-19)
-    if mod(state.iter, 50) == 0 && state.problem.β_heaviside < 16
-        state.problem.β_heaviside *= 2
-    end
+    # Adaptive β update that reacts to grey regions and schedule
+    update_heaviside_sharpness!(state)
 
     # Adaptive μ adjustment based on primal-dual residual balance
     adapt_mu_topopt!(state, residual_primal, residual_dual)
