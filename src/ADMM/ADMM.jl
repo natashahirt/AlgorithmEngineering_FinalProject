@@ -34,6 +34,6 @@ include("core/api.jl")
 
 # problem implementations
 include("problems/lasso.jl")
-include("problems/topopt_continuous.jl")
+include("problems/topopt_continuous/topopt_continuous.jl")
 
 end # of module
