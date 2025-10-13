@@ -38,8 +38,10 @@ E = 1.0           # Young's modulus (normalized)
 ν = 0.3           # Poisson's ratio
 
 # Optimization parameters
-vol_frac = 0.5    # Target volume fraction (50% material)
-σ_lim = 1.0       # Stress limit
+vol_frac = 0.3    # Target volume fraction (50% material)
+σ_lim = 25.0       # Stress limit
+
+max_iter = 100
 
 println("\nProblem Setup:")
 println("  Mesh: $(nelx)×$(nely) = $(nelx*nely) elements")
@@ -95,11 +97,14 @@ problem = ADMM.TopOptProblem(
     boundary_dofs = boundary_dofs,
     vol_frac = vol_frac,
     σ_lim = σ_lim,
-    r_filter = 0.75,           # Filter radius (1.5 × element size)
-    β_heaviside = 1.0,        # Heaviside sharpness (starts at 1.0)
-    η_heaviside = 0.5,        # Heaviside threshold
-    max_iter_mma = 50,        # MMA inner iterations
-    mma_tol = 1e-3            # MMA convergence tolerance
+    r_filter = 0.3,
+    β_heaviside = 1.0,
+    η_heaviside = 0.3,
+    β_heaviside_max = 16.0,
+    β_update_frequency = 25,
+    ρ_simp = 5.0,
+    max_iter_mma = 50,
+    mma_tol = 1e-3
 )
 
 # ============================================================================
@@ -129,7 +134,7 @@ println("\n" * "="^70)
 println("Starting optimization...")
 println("="^70)
 
-state_final, iters, converged = ADMM.run_admm!(state, max_iter=100, verbose=true)
+state_final, iters, converged = ADMM.run_admm!(state, max_iter=max_iter, verbose=true)
 
 println("\n" * "="^70)
 println("Optimization complete!")
@@ -176,6 +181,16 @@ compliance = dot(state_final.ctx.f, state_final.ctx.U)
 @printf("\n  Compliance: %.6e\n", compliance)
 
 println("\n" * "="^70)
+println("DIAGNOSTIC CHECK")
+println("="^70)
+println("ctx.ϕ range: [$(minimum(state_final.ctx.ϕ)), $(maximum(state_final.ctx.ϕ))]")
+println("ctx.ρ range: [$(minimum(state_final.ctx.ρ)), $(maximum(state_final.ctx.ρ))]")
+println("ctx.σ̄ (von Mises) range: [$(minimum(state_final.ctx.σ̄)), $(maximum(state_final.ctx.σ̄))]")
+println("ctx.σ̃ (relaxed) range: [$(minimum(state_final.ctx.σ̃)), $(maximum(state_final.ctx.σ̃))]")
+println("ctx.α (auxiliary) range: [$(minimum(state_final.ctx.α)), $(maximum(state_final.ctx.α))]")
+println("Unique values in ctx.σ̃: $(length(unique(state_final.ctx.σ̃)))")
+
+println("\n" * "="^70)
 println("Topology optimization complete!")
 println("="^70)
 println("\nDesign saved in: state_final.ctx.ρ")
@@ -216,7 +231,7 @@ ax2 = Axis(fig[1, 3],
 σ̃_grid = reshape(state_final.ctx.σ̃, nelx, nely)
 
 # Mask: show stress only for solid elements (ρ > 0.5), NaN for void
-ρ_binary = ρ_grid .> 0.5
+ρ_binary = ρ_grid .> problem.η_heaviside + 0.05
 σ̃_binary = copy(σ̃_grid)
 σ̃_binary[.!ρ_binary] .= NaN  # Set void elements to NaN
 
@@ -253,6 +268,6 @@ save(output_file, fig)
 println("  Saved visualization to: $(output_file)")
 
 # Display
-display(fig)
+# display(fig)
 
 println("\nVisualization complete!")

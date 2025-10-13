@@ -26,6 +26,12 @@ Base.@kwdef mutable struct TopOptProblem{D <: ADMM.DistributionMode, T <: Abstra
     r_filter::T # stencil radius
     β_heaviside::T # for heaviside filter (to render sharper images)
     η_heaviside::T # threshold for heaviside
+    β_heaviside_growth::T = 2.0 # multiplicative factor when sharpening projection
+    β_heaviside_max::T = 16.0 # cap for heaviside continuation
+    β_update_frequency::Int = 50 # iterations between forced β increase
+    grey_band_lo::T = 0.25 # lower bound for "grey" densities
+    grey_band_hi::T = 0.75 # upper bound for "grey" densities
+    grey_fraction_trigger::T = 0.3 # trigger β growth if grey fraction above this
 
     # numerical stability
     q_relax::T = 0.5 # avoid division by zero for near-void/void elements
@@ -51,6 +57,7 @@ Base.@kwdef mutable struct TopOptContext{T <: AbstractFloat}
 
     # for ADMM 
     α::Vector{T} # auxiliary stress variable per element
+    α_prev::Vector{T} # previous α for convergence tracking
     λ::Vector{T} # lagrange multiplier per element
 
     # global FEM solution
@@ -94,7 +101,7 @@ ADMM.ProximalTrait(::Type{<:TopOptProblem}) = ADMM.ClosedFormProx()
 get the utils
 """
 
-include("topopt_continuous_utils/topopt_continuous_utils.jl")
+include("utils/utils.jl")
 
 """
 Custom functions
@@ -160,6 +167,7 @@ function ADMM.setup!(state::ADMM.ADMMState{TopOptProblem{D,T}, Nothing}) where {
         ϕ = fill(T(problem.vol_frac), nel), # initialize at volume fraction
         ρ = zeros(T, nel),
         α = zeros(T, nel), # will be set below
+        α_prev = zeros(T, nel), # for tracking convergence
         λ = ones(T, nel), # initialize λ = 1
         U = zeros(T, ndof),
         K = spzeros(T, ndof, ndof),
@@ -193,12 +201,14 @@ function ADMM.setup!(state::ADMM.ADMMState{TopOptProblem{D,T}, Nothing}) where {
     ctx.U = FEM.solve_fem(ctx.K, ctx.f, problem.boundary_dofs)
     compute_element_stresses!(tmp_state)
     ctx.α .= ctx.σ̃
+    ctx.α_prev .= ctx.α  # initialize previous α
 
+    # ADMM state x, u, z are unused - we use ctx.ϕ, ctx.λ, ctx.α instead
     new_state = ADMM.ADMMState(
         problem, 0, state.comm, state.rank, state.nprocs,
         0, nel,  # m=0 (not used for this problem), n=nel
-        copy(ctx.ϕ), zeros(T, nel), copy(ctx.α),  # x=ϕ, u=0, z=α
-        copy(ctx.α), zeros(T, nel), copy(ctx.α),  # z_prev=α, primal_res, z_work
+        T[], T[], T[],  # x, u, z unused
+        T[], T[], T[],  # z_prev, primal_res, z_work unused
         ctx, state.params
     )
     
@@ -227,17 +237,19 @@ function ADMM._x_update!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext
     
     # Volume constraint: Σ(ρ_i * V_i) / Σ(V_i) ≤ vol_frac
     function volume_constraint(ϕ::Vector, grad::Vector)
-
-        ρ_filtered = (ctx.H * ϕ) ./ ctx.Hs
+        s = (ctx.H * ϕ) ./ ctx.Hs
         
-        # volume fraction: (Σ ρ_i * V_i) / (total_volume) - vol_frac
+        β = problem.β_heaviside
+        η = problem.η_heaviside
+        denom = tanh(β*η) + tanh(β*(1 - η))
+        ρ_phys = (@. (tanh(β*η) + tanh(β*(s - η))) / denom)
+        
         total_volume = sum(ctx.volumes)
-        current_volume_frac = dot(ρ_filtered, ctx.volumes) / total_volume
+        current_volume_frac = dot(ρ_phys, ctx.volumes) / total_volume
         
         if length(grad) > 0
-            # Gradient of volume constraint w.r.t. ϕ
-            # ∂(V_frac)/∂ϕ = (1/total_vol) * H' * (V ./ Hs)
-            grad .= (ctx.H' * (ctx.volumes ./ ctx.Hs)) / total_volume
+            dproj_ds = @. (β * (1 - tanh(β*(s - η))^2)) / denom
+            grad .= (ctx.H' * ((dproj_ds .* ctx.volumes) ./ ctx.Hs)) / total_volume
         end
         
         return current_volume_frac - problem.vol_frac
@@ -288,7 +300,6 @@ function ADMM._x_update!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext
     opt_val, opt_phi, ret = NLopt.optimize(optimizer, ctx.ϕ) # min objective value, ϕ★, return code
 
     ctx.ϕ .= opt_phi # update ctx.ϕ
-    copyto!(state.x, ctx.ϕ) # for ADMM
     
     return nothing
 
@@ -322,8 +333,6 @@ function ADMM._z_update!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext
     # α = clamp(σ̃ + λ/μ, 0, σ_lim) with under-relaxation to avoid clamp-lock
     ω = T(0.5)
     @. ctx.α = (1-ω)*ctx.α + ω * clamp(ctx.σ̃ + ctx.λ / μ, 0, problem.σ_lim)
-
-    copyto!(state.z, ctx.α) # for ADMM
     
     return nothing
 
@@ -340,10 +349,10 @@ function ADMM.check_convergence!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOp
 
     # admm residuals
     # 1. primal
-    @. state.primal_res = ctx.σ̃ - ctx.α # r = ϕ - α
-    r_primal_norm = norm(state.primal_res) # should approach 0
+    primal_res = ctx.σ̃ .- ctx.α # r = σ̃ - α
+    r_primal_norm = norm(primal_res) # should approach 0
     # 2. dual 
-    r_dual_norm = μ * norm(ctx.α .- state.z_prev) # s = μ(α - α_prev)
+    r_dual_norm = μ * norm(ctx.α .- ctx.α_prev) # s = μ(α - α_prev)
     # 3. tolerances
     n = ctx.nel
     ε_abs = state.params.abstol
@@ -354,10 +363,9 @@ function ADMM.check_convergence!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOp
 
     # update λ (dual variables for stress constraints)
     @. ctx.λ = ctx.λ + μ * (ctx.σ̃ - ctx.α) # equation 12: λ = λ + μ(σ̃ - α)
-    # @. state.u = state.u + (state.x - state.z) # update ADMM
 
     # topopt convergence
-    Δ = maximum(abs.(state.z .- state.z_prev)) # pseudocode line 23: Δ = max(|[ϕ, α]^[i] - [ϕ, α]^[i-1]|)
+    Δ = maximum(abs.(ctx.α .- ctx.α_prev)) # pseudocode line 23: Δ = max(|α^[i] - α^[i-1]|)
     Γ = dot(ctx.ρ, ctx.volumes) / sum(ctx.volumes) # pseudocode line 24
     σ_max = maximum(ctx.σ̃) # pseudocode line 25
 
@@ -401,33 +409,61 @@ function adapt_mu_topopt!(
 
 end
 
+function update_heaviside_sharpness!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext{T}}) where {D,T}
+
+    problem = state.problem
+
+    # already at max sharpness
+    if problem.β_heaviside >= problem.β_heaviside_max
+        return nothing
+    end
+
+    ctx = state.ctx
+    nel = ctx.nel
+
+    grey_count = count(ctx.ρ) do ρ_val
+        problem.grey_band_lo < ρ_val < problem.grey_band_hi
+    end
+
+    grey_fraction = nel == 0 ? zero(T) : T(grey_count) / T(nel)
+
+    schedule_hit = problem.β_update_frequency > 0 && mod(state.iter, problem.β_update_frequency) == 0
+    exceeds_grey = grey_fraction > problem.grey_fraction_trigger
+
+    if !(schedule_hit || exceeds_grey)
+        return nothing
+    end
+
+    new_beta = min(problem.β_heaviside * problem.β_heaviside_growth, problem.β_heaviside_max)
+
+    if new_beta > problem.β_heaviside
+        problem.β_heaviside = new_beta
+    end
+
+    return nothing
+end
+
 # custom run_admm! because we need to have our special convergence checks that aren't
 # compatible with the generic version...
 function ADMM._step!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext{T}}) where {D,T}
 
     state.iter += 1
+    ctx = state.ctx
 
-    # Store previous values for debugging
-    x_prev = copy(state.x)
-    u_prev = copy(state.u)
-    copyto!(state.z_prev, state.z)
+    # save previous α for convergence tracking
+    copyto!(ctx.α_prev, ctx.α)
 
-    # update x
+    # update x (ϕ via MMA)
     ADMM._x_update!(state)
 
-    # update z
+    # update z (α via projection)
     ADMM._z_update!(state)
 
     # check convergence
     residual_primal, residual_dual, epsilon_primal, epsilon_dual, topopt_converged = ADMM.check_convergence!(state)
 
-    # Debug: print norms of changes
-    # @show norm(state.z .- state.z_prev), norm(state.x .- x_prev), norm(state.u .- u_prev)
-
-    # Adaptive β every 50 iterations (pseudocode lines 17-19)
-    if mod(state.iter, 50) == 0 && state.problem.β_heaviside < 16
-        state.problem.β_heaviside *= 2
-    end
+    # Adaptive β update that reacts to grey regions and schedule
+    update_heaviside_sharpness!(state)
 
     # Adaptive μ adjustment based on primal-dual residual balance
     adapt_mu_topopt!(state, residual_primal, residual_dual)

@@ -205,6 +205,22 @@ using AlgorithmEngineering
         end
         
         @test problem.β_heaviside >= β_initial  # β should increase
+
+        # Grey fraction driven β update should trigger even without schedule
+        problem_grey = create_test_problem()
+        problem_grey.β_heaviside = 1.0
+        problem_grey.β_heaviside_growth = 2.0
+        problem_grey.β_heaviside_max = 4.0
+        problem_grey.β_update_frequency = typemax(Int) # disable periodic growth
+        problem_grey.grey_fraction_trigger = 0.1
+
+        state_grey = ADMM.init(problem_grey)
+        state_grey.iter = 1
+        state_grey.ctx.ρ .= 0.5 # intentionally grey distribution
+
+        ADMM.update_heaviside_sharpness!(state_grey)
+
+        @test problem_grey.β_heaviside > 1.0
     end
     
 end
