@@ -1,12 +1,18 @@
 module ADMM
 
-# import
+# import for ADMM
 using MPI # message passing interface for distributed systems
 using LinearAlgebra # linear algebra
 using Optim # for optimization
 using Mooncake # automatic differentiation
 using DifferentiationInterface # interface for Mooncake.jl
 using Printf # fancy printing
+
+# import for topopt
+using NearestNeighbors
+using NLopt
+using StaticArrays, SparseArrays
+using ..FEM
 
 # export
 export ADMMParams, ADMMState # structs.jl
@@ -28,5 +34,6 @@ include("core/api.jl")
 
 # problem implementations
 include("problems/lasso.jl")
+include("problems/topopt_continuous.jl")
 
 end # of module

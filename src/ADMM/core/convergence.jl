@@ -6,11 +6,11 @@ check_convergence!(state::ADMMState)
 function check_convergence!(state::ADMMState)
 
     params = state.params
-    ρ = params.ρ
+    μ = params.μ
 
     # get residuals
-    @. state.r = state.x - state.z
-    r2_local = dot(state.r, state.r)
+    @. state.primal_res = state.x - state.z
+    r2_local = dot(state.primal_res, state.primal_res)
     x2_local = dot(state.x, state.x)
     u2_local = dot(state.u, state.u)
 
@@ -20,11 +20,11 @@ function check_convergence!(state::ADMMState)
     # norms used to calculate convergence
     residual_primal = sqrt(temp[1])     # ||r|| stack, norm of difference between x and z
     primal_norm = sqrt(temp[2])       # ||x|| stack, norm of primal variable x
-    dual_norm = ρ * sqrt(temp[3])     # ||y||stack where y=ρu
+    dual_norm = μ * sqrt(temp[3])     # ||y||stack where y=μu
 
-    # dual residual: s = ρ √N ||z - z_prev||  (compute locally; z is identical on all ranks)
+    # dual residual: s = μ √N ||z - z_prev||  (compute locally; z is identical on all ranks)
     z_diff2 = dot(state.z .- state.z_prev, state.z .- state.z_prev)
-    residual_dual = ρ * sqrt(state.nprocs) * sqrt(z_diff2)
+    residual_dual = μ * sqrt(state.nprocs) * sqrt(z_diff2)
 
     # tolerances (from Boyd et al.)
     z2_local = dot(state.z, state.z)
@@ -46,10 +46,12 @@ multiple dispatch helper functions
 """
 function _allreduce_inplace!(data::Vector, ::MPIConsensus, comm::MPI.Comm)
     MPI.Allreduce!(data, MPI.SUM, comm)
+    return nothing
 end
 
 function _allreduce_inplace!(data::Vector, ::Serial, comm::MPI.Comm)
     # No-op for serial
+    return nothing
 end
 
 function _compute_z_norm(z2_local::Float64, ::MPIConsensus, comm::MPI.Comm, nprocs::Int)
@@ -63,38 +65,40 @@ function _compute_z_norm(z2_local::Float64, ::Serial, comm::MPI.Comm, nprocs::In
 end
 
 """
-maybe_adapt_rho!
-- there may be situations where the optimization requires ρcontrolling strength of augmented Lagrangian) to increase or decrease from 
+maybe_adapt_mu!
+- there may be situations where the optimization requires μ (controlling strength of augmented Lagrangian) to increase or decrease from 
 the default.
 
 - increase: prioritize consensus (local variables pushed closer to the global avg)
 - decrease: prioritize local objective optimization
 
-N.B. when maybe_adapt_rho is called we need to notify the problem and rebuild caches
-e.g. matrix factorizations that included ρ are no longer valid. The user must define
+N.B. when maybe_adapt_mu is called we need to notify the problem and rebuild caches
+e.g. matrix factorizations that included μ are no longer valid. The user must define
 """
-function maybe_adapt_rho!(state::ADMMState, primal_residual::Float64, dual_residual::Float64;
+function maybe_adapt_mu!(state::ADMMState, primal_residual::Float64, dual_residual::Float64;
                           τ_incr::Float64=2.0, τ_decr::Float64=2.0,
-                          rho_min::Float64=1e-6, rho_max::Float64=1e6)
+                          mu_min::Float64=1e-6, mu_max::Float64=1e6)
     p = state.params
-    p.adaptive_ρ || return  # skip
+    p.adaptive_μ || return  # skip
     
-    ρ_old = p.ρ # store
+    μ_old = p.μ # store
 
-    # increase ρ if primal_residual >> dual_residual
-    if primal_residual > 10 * dual_residual && ρ_old < rho_max
-        p.ρ = min(rho_max, ρ_old * τ_incr)
-        @. state.u = state.u / τ_incr    # keep y = ρu invariant
-    # decrease ρ if primal_residual << dual_residual
-    elseif dual_residual > 10 * primal_residual && ρ_old > rho_min
-        p.ρ = max(rho_min, ρ_old / τ_decr)
+    # increase μ if primal_residual >> dual_residual
+    if primal_residual > 10 * dual_residual && μ_old < mu_max
+        p.μ = min(mu_max, μ_old * τ_incr)
+        @. state.u = state.u / τ_incr    # keep y = μu invariant
+    # decrease μ if primal_residual << dual_residual
+    elseif dual_residual > 10 * primal_residual && μ_old > mu_min
+        p.μ = max(mu_min, μ_old / τ_decr)
         @. state.u = state.u * τ_decr
     end
     
     # notify problem to rebuild caches
-    if p.ρ != ρ_old
-        if hasmethod(_admm_rho_changed!, Tuple{typeof(state)})
-            _admm_rho_changed!(state)
+    if p.μ != μ_old
+        if hasmethod(_admm_mu_changed!, Tuple{typeof(state)})
+            _admm_mu_changed!(state)
         end
     end
+    
+    return nothing
 end

@@ -6,6 +6,9 @@ _step!
 """
 function _step!(state::ADMMState)
 
+    # update the iteration count
+    state.iter += 1
+
     # store previous z state
     copyto!(state.z_prev, state.z)
 
@@ -18,8 +21,8 @@ function _step!(state::ADMMState)
     # check convergence
     residual_primal, residual_dual, epsilon_primal, epsilon_dual = check_convergence!(state)
 
-    # adaptive ρ adjustment
-    maybe_adapt_rho!(state, residual_primal, residual_dual)
+    # adaptive μ adjustment
+    maybe_adapt_mu!(state, residual_primal, residual_dual)
 
     # is it converged?
     converged = (residual_primal <= epsilon_primal) && (residual_dual <= epsilon_dual)
@@ -35,23 +38,25 @@ init
 """
 function init(problem; params=ADMMParams(), comm=nothing)
     dist_trait = DistributionTrait(typeof(problem))
-    
-    if dist_trait isa Serial || comm == nothing
+
+    if !MPI.Initialized() # initialize MPI
+        MPI.Init()
+    end
+
+    if dist_trait isa Serial
         rank = 0
         nprocs = 1
-        comm_actual = MPI.COMM_SELF
+        comm = MPI.COMM_SELF
     else
-        if comm == nothing
-            comm = MPI.COMM_WORLD
-        end
+        comm = something(comm, MPI.COMM_WORLD)  # use provided or default to COMM_WORLD
         rank = MPI.Comm_rank(comm)
         nprocs = MPI.Comm_size(comm)
-        comm_actual = comm
     end
+
     # Create state with Nothing context initially
-    state = ADMMState(problem, comm_actual, rank, nprocs,
+    state = ADMMState(problem, 0, comm, rank, nprocs,
                       0, 0, Float64[], Float64[], Float64[], Float64[], Float64[], 
-                      Float64[], Float64[], nothing, params)
+                      Float64[], nothing, params)
     
     # setup! returns properly-typed state
     state = setup!(state)

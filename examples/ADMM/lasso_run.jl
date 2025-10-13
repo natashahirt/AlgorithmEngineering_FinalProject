@@ -1,12 +1,9 @@
-using Pkg; Pkg.activate(dirname(@__DIR__)) # activate project root
+using Pkg; Pkg.activate(dirname(@__DIR__))
 
 # modules
-using ADMM
+using AlgorithmEngineering.ADMM
 using SparseArrays: sprandn
 using LinearAlgebra: norm
-using MPI
-
-MPI.Init()
 
 # synthetic problem
 println("Creating synthetic LASSO problem...")
@@ -19,11 +16,11 @@ println("True solution sparsity: $(count(!iszero, x_true))/$n")
 
 # ADMM parameters
 params = ADMMParams(
-    ρ = 1.0,
+    μ = 1.0,
     reltol = 1e-3,
     abstol = 1e-4,
     α = 1.0,
-    adaptive_ρ = true
+    adaptive_μ = true
 )
 
 # solve problem
@@ -44,4 +41,4 @@ obj_val = evaluate_objective(problem, state.x) + evaluate_global_regularizer(pro
 println("Objective value: $obj_val")
 
 # Finalize MPI
-MPI.Finalize()
+# MPI.Finalize()
