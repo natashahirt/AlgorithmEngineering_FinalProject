@@ -1,27 +1,27 @@
 # AlgorithmEngineering_FinalProject
 
-Stress-constrained optimization in Julia using the ADMM optimizer.
-Research as part of the Digital Structures Research Group, begun as a final project for MIT 6.6050 Algorithm Engineering.
+Stress-constrained topology optimization in Julia using ADMM.  
+Final project for MIT 6.6050 Algorithm Engineering.
 
-The overarching goals of this project are to develop:
+## Features
 
-* A fast, Julia-native, parallelized implementation of the ADMM optimizer (if satisfactory, to be forked off as an independent package).
-* An implementation of stress-constrained, vertex-centric topology optimization (elements are no longer first-class citizens but a byproduct of the vertex-centric topopt process) that uses ADMM as the backend.
+* Generic ADMM framework with custom problem interface
+* 2D/3D finite element method (FEM) with plane stress/strain
+* Stress-constrained topology optimization using adjoint gradients
+* Heaviside projection with continuation for binary designs
+* MPI support for distributed optimization
 
 ## Repository Layout
 
-* `Manifest.toml` and `Project.toml`: Julia environment manifest and dependencies for the ADMM package.
-* `src/ADMM.jl`: Package entry point containing exports and includes.
-* `src/core/`: Core ADMM implementation files:
-  * `traits.jl`: Distribution and proximal operator traits
-  * `structs.jl`: Parameter and state structs
-  * `problem_virtual.jl`: Abstract problem interface
-  * `updates.jl`: ADMM update steps
-  * `convergence.jl`: Convergence criteria
-  * `api.jl`: Public API
-* `src/problems/`: Concrete problem implementations
-  * `lasso.jl`: LASSO regression example
-* `examples/`: Example usage
-  * `lasso_run.jl`: LASSO regression demo
+* `src/`
+  * `ADMM/`: ADMM optimizer framework
+    * `core/`: Generic ADMM implementation (traits, updates, convergence)
+    * `problems/`: Problem implementations (Lasso, topology optimization)
+  * `FEM/`: Finite element analysis module
+* `examples/`
+  * `ADMM/`: Example scripts and outputs for ADMM solver
+    * `output`: Saved images from `topopt_run` tests
+    * `topopt_run.jl`: Michell truss optimization example (custom topopt implementation)
+    * `lasso_run.jl`: LASSO regression demo (uses generic ADMM framework and is quite nice)
+  * `FEM/`: Example scripts for 2d and 3d FEM problems
 * `test/`: Test suite
-* `LICENSE`: Project license (MIT).
