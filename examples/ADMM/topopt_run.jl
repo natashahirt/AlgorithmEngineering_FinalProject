@@ -30,15 +30,15 @@ println("="^70)
 # Geometry (aspect ratio 2:1)
 Lx = 6.0          # Length [m]
 Ly = 3.0          # Height [m]
-nelx = 20         # Elements in x (keep small for speed)
-nely = 20          # Elements in y
+nelx = 40         # Elements in x (keep small for speed)
+nely = 40          # Elements in y
 
 # Material
 E = 1.0           # Young's modulus (normalized)
 ν = 0.3           # Poisson's ratio
 
 # Optimization parameters
-vol_frac = 0.3    # Target volume fraction (50% material)
+vol_frac = 0.5    # Target volume fraction (50% material)
 σ_lim = 1.0       # Stress limit
 
 println("\nProblem Setup:")
@@ -95,7 +95,7 @@ problem = ADMM.TopOptProblem(
     boundary_dofs = boundary_dofs,
     vol_frac = vol_frac,
     σ_lim = σ_lim,
-    r_filter = 1.5,           # Filter radius (1.5 × element size)
+    r_filter = 0.75,           # Filter radius (1.5 × element size)
     β_heaviside = 1.0,        # Heaviside sharpness (starts at 1.0)
     η_heaviside = 0.5,        # Heaviside threshold
     max_iter_mma = 50,        # MMA inner iterations
@@ -190,7 +190,7 @@ println("\nGenerating visualization...")
 ρ_grid = reshape(state_final.ctx.ρ, nelx, nely)
 
 # Create figure
-fig = Figure(size=(1200, 600))
+fig = Figure(size=(1400, 600))
 
 # Left plot: Optimized topology
 ax1 = Axis(fig[1, 1],
@@ -205,18 +205,27 @@ hm = heatmap!(ax1, range(0, Lx, length=nelx+1), range(0, Ly, length=nely+1), ρ_
 
 Colorbar(fig[1, 2], hm, label="Density ρ")
 
-# Right plot: Binary design (thresholded)
+# Right plot: Binary design with stress coloring
 ax2 = Axis(fig[1, 3],
-           title="Binary Design (ρ > 0.5)",
+           title="Binary Design with Stress (ρ > 0.5)",
            xlabel="x [m]",
            ylabel="y [m]",
            aspect=DataAspect())
 
-ρ_binary = ρ_grid .> 0.5
+# Create stress grid
+σ̃_grid = reshape(state_final.ctx.σ̃, nelx, nely)
 
-heatmap!(ax2, range(0, Lx, length=nelx+1), range(0, Ly, length=nely+1), ρ_binary,
-         colormap=:grays,
-         colorrange=(0, 1))
+# Mask: show stress only for solid elements (ρ > 0.5), NaN for void
+ρ_binary = ρ_grid .> 0.5
+σ̃_binary = copy(σ̃_grid)
+σ̃_binary[.!ρ_binary] .= NaN  # Set void elements to NaN
+
+hm2 = heatmap!(ax2, range(0, Lx, length=nelx+1), range(0, Ly, length=nely+1), σ̃_binary,
+         colormap=:turbo,
+         colorrange=(0, σ_lim),
+         nan_color=:black)
+
+Colorbar(fig[1, 4], hm2, label="Stress σ̃ (solid elements)")
 
 # Add boundary condition markers to both plots
 for ax in [ax1, ax2]

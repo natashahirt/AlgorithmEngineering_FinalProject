@@ -154,16 +154,13 @@ function ADMM.setup!(state::ADMM.ADMMState{TopOptProblem{D,T}, Nothing}) where {
     volumes = FEM.get_mesh_volumes(mesh)
 
     # put together the context
-
-    # Initialize with small perturbation to break symmetry
-    α_init = ones(T, nel) * problem.σ_lim * 0.5  # Start at half the stress limit
     
     ctx = TopOptContext(
         nel = nel,
-        ϕ = ones(T, nel) * 0.5, # initial ϕ
+        ϕ = fill(T(problem.vol_frac), nel), # initialize at volume fraction
         ρ = zeros(T, nel),
-        α = α_init,  # Initialize near stress limit to encourage ADMM activity
-        λ = zeros(T, nel),
+        α = zeros(T, nel), # will be set below
+        λ = ones(T, nel), # initialize λ = 1
         U = zeros(T, ndof),
         K = spzeros(T, ndof, ndof),
         f = f_global,
@@ -180,13 +177,34 @@ function ADMM.setup!(state::ADMM.ADMMState{TopOptProblem{D,T}, Nothing}) where {
         # σ_buffer = zeros(T, stress_size, 1)
     )
 
-    return ADMM.ADMMState(
+    # compute initial stresses to set α = σ̃(ϕ₀)
+    tmp_state = ADMM.ADMMState(
         problem, 0, state.comm, state.rank, state.nprocs,
-        0, nel,  # m=0 (not used for this problem), n=nel
-        copy(ctx.ϕ), zeros(T, nel), copy(α_init),  # x=ϕ, u=0, z=α
-        copy(α_init), zeros(T, nel), copy(α_init),  # z_prev=α, primal_res, z_work
+        0, nel, copy(ctx.ϕ), zeros(T, nel), zeros(T, nel),
+        zeros(T, nel), zeros(T, nel), zeros(T, nel),
         ctx, state.params
     )
+    apply_density_filter!(tmp_state)
+    ctx.K = FEM.assemble_stiffness_matrix(
+        problem.mesh, problem.material, problem.analysis_type;
+        ρ = ctx.ρ, ρ_simp = problem.ρ_simp,
+        E_min = problem.ρ_min * problem.material.E
+    )
+    ctx.U = FEM.solve_fem(ctx.K, ctx.f, problem.boundary_dofs)
+    compute_element_stresses!(tmp_state)
+    ctx.α .= ctx.σ̃
+
+    new_state = ADMM.ADMMState(
+        problem, 0, state.comm, state.rank, state.nprocs,
+        0, nel,  # m=0 (not used for this problem), n=nel
+        copy(ctx.ϕ), zeros(T, nel), copy(ctx.α),  # x=ϕ, u=0, z=α
+        copy(ctx.α), zeros(T, nel), copy(ctx.α),  # z_prev=α, primal_res, z_work
+        ctx, state.params
+    )
+    
+    new_state.params.μ = T(0.5) # start with smaller μ
+
+    return new_state
 
 end
 
@@ -301,8 +319,9 @@ function ADMM._z_update!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext
     compute_element_stresses!(state)
 
     # actual update
-    # α = min(σ̃ + λ/μ, σ_lim) - projects onto feasible stress region
-    @. ctx.α = min(ctx.σ̃ + ctx.λ / μ, problem.σ_lim)
+    # α = clamp(σ̃ + λ/μ, 0, σ_lim) with under-relaxation to avoid clamp-lock
+    ω = T(0.5)
+    @. ctx.α = (1-ω)*ctx.α + ω * clamp(ctx.σ̃ + ctx.λ / μ, 0, problem.σ_lim)
 
     copyto!(state.z, ctx.α) # for ADMM
     

@@ -72,9 +72,9 @@ function compute_gradients_adjoint!(state::ADMM.ADMMState{TopOptProblem{D,T}, To
         pure_compliance = -∂K_∂ρ * dot(u_element, K_0 * u_element)
 
         # stress constraint derivative
-        # -(λᵢ + μ(αᵢ - σ̃ᵢ)) · q · ρᵢ^(q-1) · σ̃ᵢ  [note: negative sign from eq. 38]
+        # -(λᵢ + μ(αᵢ - σ̃ᵢ)) · q · ρᵢ^(q-1) · σ̄ᵢ  [note: use σ̄ to match ∂σ̃/∂ρ = q·ρ^(q-1)·σ̄]
         weight = ctx.λ[i] + μ * (ctx.α[i] - ctx.σ̃[i])
-        σ_constraint = -weight * q * ctx.ρ[i]^(q-1) * ctx.σ̄[i] # negative sign!
+        σ_constraint = -weight * q * ctx.ρ[i]^(q-1) * ctx.σ̄[i]
 
         ctx.∇L_ϕ[i] = pure_compliance + compliance_derivative + σ_constraint
 
