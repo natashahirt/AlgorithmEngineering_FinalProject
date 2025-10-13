@@ -38,8 +38,8 @@ E = 1.0           # Young's modulus (normalized)
 ν = 0.3           # Poisson's ratio
 
 # Optimization parameters
-vol_frac = 0.5    # Target volume fraction (50% material)
-σ_lim = 0.02       # Stress limit
+vol_frac = 0.3    # Target volume fraction (50% material)
+σ_lim = 1.0       # Stress limit
 
 println("\nProblem Setup:")
 println("  Mesh: $(nelx)×$(nely) = $(nelx*nely) elements")

@@ -35,11 +35,11 @@ function compute_gradients_adjoint!(state::ADMM.ADMMState{TopOptProblem{D,T}, To
         # ∂σ̄/∂σ --derivative of von mises
         ∂σ̄_∂σ = ∂_von_mises_stress(view(ctx.σ, :, i), ctx.σ̄[i], problem.analysis_type) # ∂σ̄ᵢ/∂σᵢ
 
-        # weight term
-        weight = ctx.λ[i] + μ * (ctx.α[i] - ctx.σ̃[i]) # λᵢ + μ(αᵢ - σ̃ᵢ); note it's relaxed stress not von Mises
+        # weight term (negative sign from eq. 38: -λ^T ∂σ̃/∂φ - μ(α-σ̃)^T ∂σ̃/∂φ)
+        weight = -(ctx.λ[i] + μ * (ctx.α[i] - ctx.σ̃[i])) # -(λᵢ + μ(αᵢ - σ̃ᵢ))
 
         # contribute element contribution
-        dof_contribution = B' * D_const' * ∂σ̄_∂σ * (weight * ctx.ρ[i]^q) # full Bᵢ^T · D₀^T ⋅ (∂σ̄ᵢ/∂σᵢ) ⋅ (λᵢ + μ(αᵢ - σ̃ᵢ)) · ρᵢ^q
+        dof_contribution = B' * D_const' * ∂σ̄_∂σ * (weight * ctx.ρ[i]^q) # full Bᵢ^T · D₀^T ⋅ (∂σ̄ᵢ/∂σᵢ) ⋅ (-(λᵢ + μ(αᵢ - σ̃ᵢ))) · ρᵢ^q
 
         # add to rhs
         for (local_i, global_i) in enumerate(element_dofs)
@@ -72,9 +72,9 @@ function compute_gradients_adjoint!(state::ADMM.ADMMState{TopOptProblem{D,T}, To
         pure_compliance = -∂K_∂ρ * dot(u_element, K_0 * u_element)
 
         # stress constraint derivative
-        # (λᵢ + μ(αᵢ - σ̃ᵢ)) · q · ρᵢ^(q-1) · σ̃ᵢ
+        # -(λᵢ + μ(αᵢ - σ̃ᵢ)) · q · ρᵢ^(q-1) · σ̃ᵢ  [note: negative sign from eq. 38]
         weight = ctx.λ[i] + μ * (ctx.α[i] - ctx.σ̃[i])
-        σ_constraint = weight * q * ctx.ρ[i]^(q-1) * ctx.σ̃[i]
+        σ_constraint = -weight * q * ctx.ρ[i]^(q-1) * ctx.σ̄[i] # negative sign!
 
         ctx.∇L_ϕ[i] = pure_compliance + compliance_derivative + σ_constraint
 

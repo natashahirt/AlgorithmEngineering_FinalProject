@@ -155,11 +155,14 @@ function ADMM.setup!(state::ADMM.ADMMState{TopOptProblem{D,T}, Nothing}) where {
 
     # put together the context
 
+    # Initialize with small perturbation to break symmetry
+    α_init = ones(T, nel) * problem.σ_lim * 0.5  # Start at half the stress limit
+    
     ctx = TopOptContext(
         nel = nel,
         ϕ = ones(T, nel) * 0.5, # initial ϕ
         ρ = zeros(T, nel),
-        α = zeros(T, nel),
+        α = α_init,  # Initialize near stress limit to encourage ADMM activity
         λ = zeros(T, nel),
         U = zeros(T, ndof),
         K = spzeros(T, ndof, ndof),
@@ -180,8 +183,8 @@ function ADMM.setup!(state::ADMM.ADMMState{TopOptProblem{D,T}, Nothing}) where {
     return ADMM.ADMMState(
         problem, 0, state.comm, state.rank, state.nprocs,
         0, nel,  # m=0 (not used for this problem), n=nel
-        zeros(T, nel), zeros(T, nel), zeros(T, nel),  # x, u, z
-        zeros(T, nel), zeros(T, nel), zeros(T, nel),  # z_prev, primal_res, z_work
+        copy(ctx.ϕ), zeros(T, nel), copy(α_init),  # x=ϕ, u=0, z=α
+        copy(α_init), zeros(T, nel), copy(α_init),  # z_prev=α, primal_res, z_work
         ctx, state.params
     )
 
@@ -318,18 +321,21 @@ function ADMM.check_convergence!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOp
 
     # admm residuals
     # 1. primal
-    @. state.primal_res = state.x - state.z # r = ϕ - α
+    @. state.primal_res = ctx.σ̃ - ctx.α # r = ϕ - α
     r_primal_norm = norm(state.primal_res) # should approach 0
     # 2. dual 
-    r_dual_norm = μ * norm(state.z .- state.z_prev) # s = μ(α - α_prev)
+    r_dual_norm = μ * norm(ctx.α .- state.z_prev) # s = μ(α - α_prev)
     # 3. tolerances
-    sqrt_n = sqrt(state.n) # consensus variable
-    ϵ_primal = sqrt_n * params.abstol + params.reltol * max(norm(state.x), norm(state.z))
-    ϵ_dual = sqrt_n * params.abstol + params.reltol * μ * norm(state.u)
+    n = ctx.nel
+    ε_abs = state.params.abstol
+    ε_rel = state.params.reltol
+
+    ϵ_primal = sqrt(n)*ε_abs + ε_rel * max(norm(ctx.σ̃), norm(ctx.α))
+    ϵ_dual = sqrt(n)*ε_abs + ε_rel * μ * norm(ctx.α)
 
     # update λ (dual variables for stress constraints)
     @. ctx.λ = ctx.λ + μ * (ctx.σ̃ - ctx.α) # equation 12: λ = λ + μ(σ̃ - α)
-    @. state.u = state.u + (state.x - state.z) # update ADMM
+    # @. state.u = state.u + (state.x - state.z) # update ADMM
 
     # topopt convergence
     Δ = maximum(abs.(state.z .- state.z_prev)) # pseudocode line 23: Δ = max(|[ϕ, α]^[i] - [ϕ, α]^[i-1]|)
@@ -347,14 +353,31 @@ function ADMM.check_convergence!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOp
 
 end
 
-function ADMM.maybe_adapt_mu!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext{T}}) where {D,T}
-    # pseudocode lines 20-22
-    # Adaptive μ every 5 iterations
+function adapt_mu_topopt!(
+    state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext{T}}, 
+    primal_residual::T, 
+    dual_residual::T;
+    τ_incr::T=T(2.0), 
+    τ_decr::T=T(2.0),
+    mu_min::T=T(1e-4),
+    mu_max::T=T(1e4)
+) where {D,T}
+    μ = state.params.μ
 
-    if state.params.adaptive_μ && mod(state.iter, 5) == 0
-        state.params.μ *= 1.05
+    if !state.params.adaptive_μ
+        return nothing
     end
-    
+
+    if dual_residual < T(1e-12)  # z didn't move; skip μ update this iter
+        return nothing
+    end
+
+    if primal_residual > T(10) * dual_residual
+        state.params.μ = min(T(2) * μ, mu_max)
+    elseif dual_residual > T(10) * primal_residual
+        state.params.μ = max(μ / T(2), mu_min)
+    end
+
     return nothing
 
 end
@@ -365,6 +388,9 @@ function ADMM._step!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext{T}}
 
     state.iter += 1
 
+    # Store previous values for debugging
+    x_prev = copy(state.x)
+    u_prev = copy(state.u)
     copyto!(state.z_prev, state.z)
 
     # update x
@@ -376,13 +402,16 @@ function ADMM._step!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext{T}}
     # check convergence
     residual_primal, residual_dual, epsilon_primal, epsilon_dual, topopt_converged = ADMM.check_convergence!(state)
 
+    # Debug: print norms of changes
+    # @show norm(state.z .- state.z_prev), norm(state.x .- x_prev), norm(state.u .- u_prev)
+
     # Adaptive β every 50 iterations (pseudocode lines 17-19)
     if mod(state.iter, 50) == 0 && state.problem.β_heaviside < 16
         state.problem.β_heaviside *= 2
     end
 
-    # Adaptive μ adjustment (pseudocode lines 20-22)
-    ADMM.maybe_adapt_mu!(state)
+    # Adaptive μ adjustment based on primal-dual residual balance
+    adapt_mu_topopt!(state, residual_primal, residual_dual)
 
     return topopt_converged, residual_primal, residual_dual, epsilon_primal, epsilon_dual
 
