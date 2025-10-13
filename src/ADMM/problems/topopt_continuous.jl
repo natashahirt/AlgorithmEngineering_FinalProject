@@ -1,8 +1,6 @@
 # file for topopt continuous
 # includes all the problem definitions and direct overwrites for ADMM.jl
 
-include("topopt_continuous_utils/topopt_continuous_utils.jl")
-
 export TopOptProblem
 
 """
@@ -17,7 +15,7 @@ Base.@kwdef mutable struct TopOptProblem{D <: ADMM.DistributionMode, T <: Abstra
     analysis_type::Union{FEM.PlaneStress, FEM.PlaneStrain, FEM.ThreeDimensional} = FEM.PlaneStress()
 
     # set up the problem itself
-    forces::Dict{Int, SVector} # from node id to force vector
+    forces::Dict{Int, <:SVector} # from node id to force vector
     boundary_dofs::Vector{Int}
 
     # constraints (might change for different formulation? e.g. minimizing volume instead of compliance)
@@ -93,17 +91,22 @@ ADMM.DistributionTrait(::Type{<:TopOptProblem{D}}) where D = D()
 ADMM.ProximalTrait(::Type{<:TopOptProblem}) = ADMM.ClosedFormProx()
 
 """
+get the utils
+"""
+
+include("topopt_continuous_utils/topopt_continuous_utils.jl")
+
+"""
 Custom functions
 """
 
-function ADMM.setup!(state::ADMM.ADMMState{TopOptProblem{D}, Nothing}) where {D}
+function ADMM.setup!(state::ADMM.ADMMState{TopOptProblem{D,T}, Nothing}) where {D,T}
 
     problem = state.problem
     mesh = problem.mesh
     
     nel = length(mesh.elements)
     nnodes = length(mesh.nodes)
-    T = eltype(mesh.nodes[1].coords) # get element type for type param
 
     dim = length(mesh.nodes[1].coords)  # 2 or 3 dimensions
     ndof = nnodes * dim
@@ -200,6 +203,26 @@ function ADMM._x_update!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext
     NLopt.upper_bounds!(optimizer, ones(T, nel))
     NLopt.xtol_rel!(optimizer, problem.mma_tol)
     NLopt.maxeval!(optimizer, problem.max_iter_mma)
+    
+    # Volume constraint: Σ(ρ_i * V_i) / Σ(V_i) ≤ vol_frac
+    function volume_constraint(ϕ::Vector, grad::Vector)
+
+        ρ_filtered = (ctx.H * ϕ) ./ ctx.Hs
+        
+        # volume fraction: (Σ ρ_i * V_i) / (total_volume) - vol_frac
+        total_volume = sum(ctx.volumes)
+        current_volume_frac = dot(ρ_filtered, ctx.volumes) / total_volume
+        
+        if length(grad) > 0
+            # Gradient of volume constraint w.r.t. ϕ
+            # ∂(V_frac)/∂ϕ = (1/total_vol) * H' * (V ./ Hs)
+            grad .= (ctx.H' * (ctx.volumes ./ ctx.Hs)) / total_volume
+        end
+        
+        return current_volume_frac - problem.vol_frac
+    end
+    
+    NLopt.inequality_constraint!(optimizer, volume_constraint, 1e-6)
     
     function augmented_lagrangian(ϕ::Vector, grad::Vector)
 

@@ -68,12 +68,15 @@ function compute_gradients_adjoint!(state::ADMM.ADMMState{TopOptProblem{D,T}, To
         ∂K_∂ρ = ρ_simp * ctx.ρ[i]^(ρ_simp - 1) * (E_0 - E_min)
         compliance_derivative = ∂K_∂ρ * dot(λ_adjoint_element, K_0 * u_element)
 
+        # pure compliance gradient (always present)
+        pure_compliance = -∂K_∂ρ * dot(u_element, K_0 * u_element)
+
         # stress constraint derivative
         # (λᵢ + μ(αᵢ - σ̃ᵢ)) · q · ρᵢ^(q-1) · σ̃ᵢ
         weight = ctx.λ[i] + μ * (ctx.α[i] - ctx.σ̃[i])
         σ_constraint = weight * q * ctx.ρ[i]^(q-1) * ctx.σ̃[i]
 
-        ctx.∇L_ϕ[i] = compliance_derivative + σ_constraint
+        ctx.∇L_ϕ[i] = pure_compliance + compliance_derivative + σ_constraint
 
     end
 

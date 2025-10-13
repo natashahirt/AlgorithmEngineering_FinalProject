@@ -4,3 +4,4 @@
 
 include("test_admm_core.jl")
 include("test_fem.jl")
+include("test_topopt.jl")

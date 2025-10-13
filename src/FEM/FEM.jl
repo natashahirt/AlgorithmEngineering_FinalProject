@@ -1,6 +1,6 @@
 # FEM.jl - Finite Element Method module
 # this is a draft (FEM is a relatively standard implementation but also annoying to do, so
-# the codebase is largely made using a combination of Codex and Claude for expediency)
+# the codebase was largely made using a combination of Codex and Claude by Adam Burke and myself
 
 """
 FEM
@@ -9,7 +9,7 @@ Finite Element Method module for topology optimization.
 """
 module FEM
 
-using LinearAlgebra, SparseArrays, StaticArrays
+using LinearAlgebra, SparseArrays, StaticArrays, Statistics
 
 # Import submodules
 include("core/mesh.jl")

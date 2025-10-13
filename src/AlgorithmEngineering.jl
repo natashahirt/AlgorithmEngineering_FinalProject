@@ -11,14 +11,14 @@ Author: Natasha Hirt <nhirt@mit.edu>
 module AlgorithmEngineering
 
 # Include submodules
-include("ADMM/ADMM.jl")
 include("FEM/FEM.jl")
+include("ADMM/ADMM.jl")
 
 # Re-export submodules
-using .ADMM
 using .FEM
+using .ADMM
 
-export ADMM, FEM
+export FEM, ADMM
 
 end # module AlgorithmEngineering
 
