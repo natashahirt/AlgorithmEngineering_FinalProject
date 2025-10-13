@@ -74,7 +74,7 @@ function ADMM.setup!(state::ADMM.ADMMState{LassoProblem{D}, C}) where {D, C}
     
     # Return new properly-typed state
     return ADMM.ADMMState(
-        problem, state.comm, state.rank, state.nprocs,
+        problem, state.iter, state.comm, state.rank, state.nprocs,
         m, n, x, u, z, z_prev, primal_res, z_work, ctx, state.params
     )
 end
@@ -131,6 +131,8 @@ function ADMM._x_update!(state::ADMM.ADMMState{LassoProblem{D}, LassoContext}) w
         mul!(state.x, A', ctx.p)         # x = A' * p
         @. state.x = rhs/μ - state.x/(μ*μ)
     end
+    
+    return nothing
 end
 
 function ADMM._apply_proximal!(state::ADMM.ADMMState{LassoProblem{D}, LassoContext}, ::ADMM.ClosedFormProx) where D
@@ -149,4 +151,6 @@ function ADMM._apply_proximal!(state::ADMM.ADMMState{LassoProblem{D}, LassoConte
             state.z[i] = 0.0
         end
     end
+    
+    return nothing
 end

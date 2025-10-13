@@ -10,6 +10,7 @@ using Printf # fancy printing
 
 # import for topopt
 using NearestNeighbors
+using NLopt
 
 # export
 export ADMMParams, ADMMState # structs.jl

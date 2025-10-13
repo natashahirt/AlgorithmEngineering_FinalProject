@@ -20,6 +20,9 @@ ADMMState
 mutable struct ADMMState{P,C}
     problem::P # define own struct
 
+    # Optimization
+    iter::Int
+
     # MPI tools
     comm::MPI.Comm # MPI communicator object e.g. MPI.COMM_WORLD
     rank::Int # unique identifier for current process (which node am I)

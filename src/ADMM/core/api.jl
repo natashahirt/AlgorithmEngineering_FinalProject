@@ -6,6 +6,9 @@ _step!
 """
 function _step!(state::ADMMState)
 
+    # update the iteration count
+    state.iter += 1
+
     # store previous z state
     copyto!(state.z_prev, state.z)
 
@@ -51,7 +54,7 @@ function init(problem; params=ADMMParams(), comm=nothing)
     end
 
     # Create state with Nothing context initially
-    state = ADMMState(problem, comm, rank, nprocs,
+    state = ADMMState(problem, 0, comm, rank, nprocs,
                       0, 0, Float64[], Float64[], Float64[], Float64[], Float64[], 
                       Float64[], nothing, params)
     

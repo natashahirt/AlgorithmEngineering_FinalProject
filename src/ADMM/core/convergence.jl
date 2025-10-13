@@ -46,10 +46,12 @@ multiple dispatch helper functions
 """
 function _allreduce_inplace!(data::Vector, ::MPIConsensus, comm::MPI.Comm)
     MPI.Allreduce!(data, MPI.SUM, comm)
+    return nothing
 end
 
 function _allreduce_inplace!(data::Vector, ::Serial, comm::MPI.Comm)
     # No-op for serial
+    return nothing
 end
 
 function _compute_z_norm(z2_local::Float64, ::MPIConsensus, comm::MPI.Comm, nprocs::Int)
@@ -97,4 +99,6 @@ function maybe_adapt_mu!(state::ADMMState, primal_residual::Float64, dual_residu
             _admm_mu_changed!(state)
         end
     end
+    
+    return nothing
 end

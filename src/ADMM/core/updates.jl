@@ -31,6 +31,8 @@ function _x_update!(state::ADMMState)
                       method=LBFGS(), show_trace=false)
 
     state.x .= Optim.minimizer(result)
+    
+    return nothing
 
 end
 
@@ -54,6 +56,8 @@ function _z_update!(state::ADMMState)
     _average_z!(state, DistributionTrait(typeof(state.problem)))
 
     _apply_proximal!(state, ProximalTrait(typeof(state.problem)))
+    
+    return nothing
 end
 
 """
@@ -62,14 +66,17 @@ multiple dispatch helper functions
 function _average_z!(state::ADMMState, ::MPIConsensus)
     MPI.Allreduce!(state.z_work, state.z, MPI.SUM, state.comm) # reduction operation (here, MPI.SUM) across all ranks
     @. state.z = state.z / state.nprocs # get the average (divide SUM / N)
+    return nothing
 end
 
 function _average_z!(state::ADMMState, ::Serial)
     copyto!(state.z, state.z_work)
+    return nothing
 end
 
 function _apply_proximal!(state::ADMMState, ::ClosedFormProx)
     # z stays as average, no regularization
+    return nothing
 end
 
 function _apply_proximal!(state::ADMMState, ::NumericalProx)
@@ -92,4 +99,6 @@ function _apply_proximal!(state::ADMMState, ::NumericalProx)
                         method=LBFGS(), show_trace=false)
 
     state.z .= Optim.minimizer(result)
+    
+    return nothing
 end
