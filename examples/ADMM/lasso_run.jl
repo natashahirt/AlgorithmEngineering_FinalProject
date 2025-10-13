@@ -1,6 +1,5 @@
-using Pkg; Pkg.activate(dirname(@__DIR__))
+using Pkg; Pkg.activate(dirname(dirname(@__DIR__)))
 
-# modules
 using AlgorithmEngineering.ADMM
 using SparseArrays: sprandn
 using LinearAlgebra: norm

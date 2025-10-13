@@ -1,11 +1,11 @@
 """
-Minimal Topology Optimization Example - MBB Beam
+Minimal Topology Optimization Example - Michell Truss
 
-2D beam with stress-constrained compliance minimization using ADMM.
-Based on the classic Messerschmitt-Bölkow-Blohm (MBB) benchmark.
+2D cantilever structure with stress-constrained compliance minimization using ADMM.
+Classic benchmark problem with left edge fixed and horizontal load on right edge.
 
 Setup:
-- Small 10×5 mesh for speed
+- 20×10 mesh
 - Volume fraction: 50%
 - Stress limit: enforced via ADMM
 """
@@ -20,7 +20,7 @@ using Printf
 using GLMakie
 
 println("="^70)
-println("Topology Optimization: MBB Beam (ADMM)")
+println("Topology Optimization: Michell Truss (ADMM)")
 println("="^70)
 
 # ============================================================================
@@ -30,8 +30,8 @@ println("="^70)
 # Geometry (aspect ratio 2:1)
 Lx = 6.0          # Length [m]
 Ly = 3.0          # Height [m]
-nelx = 10         # Elements in x (keep small for speed)
-nely = 5          # Elements in y
+nelx = 40         # Elements in x (keep small for speed)
+nely = 40          # Elements in y
 
 # Material
 E = 1.0           # Young's modulus (normalized)
@@ -39,7 +39,7 @@ E = 1.0           # Young's modulus (normalized)
 
 # Optimization parameters
 vol_frac = 0.5    # Target volume fraction (50% material)
-σ_lim = 0.1       # Stress limit
+σ_lim = 1.0       # Stress limit
 
 println("\nProblem Setup:")
 println("  Mesh: $(nelx)×$(nely) = $(nelx*nely) elements")
@@ -58,26 +58,26 @@ left_nodes = FEM.get_boundary_nodes(mesh, "left")
 right_nodes = FEM.get_boundary_nodes(mesh, "right")
 top_nodes = FEM.get_boundary_nodes(mesh, "top")
 
-# Boundary conditions: MBB beam (symmetric half)
-# Left bottom corner: pin (ux=0, uy=0)
-left_bottom_node = left_nodes[1]
-left_dofs = FEM.get_node_dofs(mesh, left_bottom_node)
+# Boundary conditions: Michell truss (cantilever from left edge)
+# Top left corner: pin (ux=0, uy=0)
+top_left_node = left_nodes[end]  # Last node in left_nodes (top left)
+top_left_dofs = FEM.get_node_dofs(mesh, top_left_node)
 
-# Right bottom corner: roller (uy=0)
-right_bottom_node = right_nodes[1]
-right_dof_y = FEM.get_node_dofs(mesh, right_bottom_node)[2]
+# Bottom left corner: pin (ux=0, uy=0)
+bottom_left_node = left_nodes[1]  # First node in left_nodes (bottom left)
+bottom_left_dofs = FEM.get_node_dofs(mesh, bottom_left_node)
 
-boundary_dofs = [left_dofs[1], left_dofs[2], right_dof_y]
+boundary_dofs = [top_left_dofs[1], top_left_dofs[2], bottom_left_dofs[1], bottom_left_dofs[2]]
 
-println("  Boundary: pin at left bottom, roller at right bottom")
+println("  Boundary: pins at top left and bottom left corners")
 
-# Loading: downward force at center of top edge
-center_idx = div(length(top_nodes) + 1, 2)
-load_node = top_nodes[center_idx]
+# Loading: downward force at middle of right edge
+right_mid_idx = div(length(right_nodes) + 1, 2)
+load_node = right_nodes[right_mid_idx]
 
 forces = Dict(load_node => SVector(0.0, -1.0))  # 1N downward
 
-println("  Load: 1N downward at top center (node $(load_node))")
+println("  Load: 1N downward at right edge center (node $(load_node))")
 
 # ============================================================================
 # TOPOLOGY OPTIMIZATION PROBLEM
@@ -95,7 +95,7 @@ problem = ADMM.TopOptProblem(
     boundary_dofs = boundary_dofs,
     vol_frac = vol_frac,
     σ_lim = σ_lim,
-    r_filter = 1.5,           # Filter radius (1.5 × element size)
+    r_filter = 0.75,           # Filter radius (1.5 × element size)
     β_heaviside = 1.0,        # Heaviside sharpness (starts at 1.0)
     η_heaviside = 0.5,        # Heaviside threshold
     max_iter_mma = 50,        # MMA inner iterations
@@ -190,7 +190,7 @@ println("\nGenerating visualization...")
 ρ_grid = reshape(state_final.ctx.ρ, nelx, nely)
 
 # Create figure
-fig = Figure(size=(1200, 600))
+fig = Figure(size=(1400, 600))
 
 # Left plot: Optimized topology
 ax1 = Axis(fig[1, 1],
@@ -205,32 +205,41 @@ hm = heatmap!(ax1, range(0, Lx, length=nelx+1), range(0, Ly, length=nely+1), ρ_
 
 Colorbar(fig[1, 2], hm, label="Density ρ")
 
-# Right plot: Binary design (thresholded)
+# Right plot: Binary design with stress coloring
 ax2 = Axis(fig[1, 3],
-           title="Binary Design (ρ > 0.5)",
+           title="Binary Design with Stress (ρ > 0.5)",
            xlabel="x [m]",
            ylabel="y [m]",
            aspect=DataAspect())
 
-ρ_binary = ρ_grid .> 0.5
+# Create stress grid
+σ̃_grid = reshape(state_final.ctx.σ̃, nelx, nely)
 
-heatmap!(ax2, range(0, Lx, length=nelx+1), range(0, Ly, length=nely+1), ρ_binary,
-         colormap=:grays,
-         colorrange=(0, 1))
+# Mask: show stress only for solid elements (ρ > 0.5), NaN for void
+ρ_binary = ρ_grid .> 0.5
+σ̃_binary = copy(σ̃_grid)
+σ̃_binary[.!ρ_binary] .= NaN  # Set void elements to NaN
+
+hm2 = heatmap!(ax2, range(0, Lx, length=nelx+1), range(0, Ly, length=nely+1), σ̃_binary,
+         colormap=:turbo,
+         colorrange=(0, σ_lim),
+         nan_color=:black)
+
+Colorbar(fig[1, 4], hm2, label="Stress σ̃ (solid elements)")
 
 # Add boundary condition markers to both plots
 for ax in [ax1, ax2]
-    # Left bottom: Pin support (fixed in x and y) - shown as triangle
+    # Top left: Pin support (fixed in x and y) - shown as triangle
+    scatter!(ax, [0.0], [Ly], marker=:utriangle, markersize=20, color=:blue, strokewidth=2, strokecolor=:black)
+    # Bottom left: Pin support (fixed in x and y) - shown as triangle
     scatter!(ax, [0.0], [0.0], marker=:utriangle, markersize=20, color=:blue, strokewidth=2, strokecolor=:black)
-    # Right bottom: Roller support (fixed in y only) - shown as circle
-    scatter!(ax, [Lx], [0.0], marker=:circle, markersize=15, color=:blue, strokewidth=2, strokecolor=:black)
-    # Load point at top center - shown as downward arrow
-    scatter!(ax, [Lx/2], [Ly], marker=:dtriangle, markersize=20, color=:red, strokewidth=2, strokecolor=:black)
+    # Load point at right edge center - shown as downward arrow
+    scatter!(ax, [Lx], [Ly/2], marker=:dtriangle, markersize=20, color=:red, strokewidth=2, strokecolor=:black)
 end
 
 # Overall title with key metrics
 Label(fig[0, :], 
-      @sprintf("MBB Beam: Vol=%.1f%%, σmax=%.3f, Compliance=%.2e", 
+      @sprintf("Michell Truss: Vol=%.1f%%, σmax=%.3f, Compliance=%.2e", 
                actual_volume_frac*100, max_stress, compliance),
       fontsize=20,
       font=:bold)
@@ -238,7 +247,7 @@ Label(fig[0, :],
 # Save figure
 output_dir = joinpath(@__DIR__, "output")
 mkpath(output_dir)
-output_file = joinpath(output_dir, "topopt_mbb_result.png")
+output_file = joinpath(output_dir, "topopt_michell_result.png")
 save(output_file, fig)
 
 println("  Saved visualization to: $(output_file)")
