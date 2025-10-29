@@ -1,0 +1,36 @@
+\documentclass[12pt]{article}
+
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage[backend=bibtex,style=numeric]{biblatex}
+
+% Remove paragraph indentation and add space between paragraphs
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{\baselineskip}
+
+\addbibresource{references.bib}  % Specify the .bib file
+% To cite: \cite{key}, \parencite{key}, \textcite{key}
+
+\title{Literature Review}
+\author{}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+Topology optimization (TO) is a method used for the minimum-volume design of load-bearing structures within a given design space. A rigorous numerical formulation dates back to the 1980's \parencite{bendsoeGeneratingOptimalTopologies1988}, and it has since become a staple in the aerospace and mechanical engineering industries, where light, stiff structural components are desirable. Despite its widespread usage, it remains a challenging problem to solve at scale and in highly-constrained settings (e.g. when introducing a stress constraint). The difficulties owe to the complex dependencies between global stiffness and individual element density (optimization variable $\rho$) as well as to the numerical overhead of solving large, sparse numerical systems.
+
+As TO is a relatively mature and industrially relevant technology, a large body of work has been dedicated to ameliorating the computational bottleneck of FEM, which may at times be called upon to solve millions of finite element analyses. Recent literature has discussed parallelization (both in general and for GPUs) and distributed algorithms. Aage et al. first introduce an open-source approach to parallel topology optimization using the C library PETSc for parallel, scalable linear algebra, later developed into a Python wrapper by Smit et al. \cite{aageTopologyOptimizationUsing2015,smitTopologyOptimizationUsing2021}. Medřický et al. and Fourati et al. discuss how to solve subdomains of the topology optimization problem itself in parallel \parencite{medrickyComparisonFETIbasedDomain2021,fouratiLargescaleSmoothPlastic2021}, and Xia et al. benchmark a heterogenous CPU/GPU approach against serial CPU and parallel GPU solvers \parencite{xiaHybridParallelStrategy2023}. 
+
+Beyond solving the linear TO system itself, some progress has also been made in decentralizing the optimization itself using the Augmented Lagrangian Method \cite{zhaiAlternatingOptimizationDesign2021}. This is easily implemented using the ADMM solver \parencite{boydDistributedOptimizationStatistical2010}. The solver splits the total equation into multiple smaller equations, each of which corresponds to a constraint, and enforces equality between the main solution and the solutions that satisfy the constraint equations. Since the updates are highly parallel, the method lends itself well to distributed implementations and is often used for large-scale optimization problems with complex, nonconvex objective and constraint functions \parencite{moehlePortfolioConstructionLinearly2022}. 
+
+Although efficient parallel implementations for solving the FEM portion of the TO problem exist, and there has been work on decentralized optimization loops for stress constraints, there are few (if any) accessible implementations that combine a distributed FEM with a distributed ADMM implementation. We propose a layered distributed approach to TO based on the ADMM solver that addresses both of these challenges. The approach entails (a) distributing the optimization under the ADMM formulation, which breaks the objective and constraints into primal and dual formulations and allows for efficient convergence to optimal and feasible solutions \parencite{zhaiAlternatingOptimizationDesign2021}, and (b) applying state-of-the-art distributed techniques to the finite element method (FEM) that performs the physics simulation. 
+
+\printbibliography  % Print the bibliography
+
+\end{document}
+
+

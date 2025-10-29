@@ -11,6 +11,7 @@ Base.@kwdef mutable struct TopOptProblem{D <: ADMM.DistributionMode, T <: Abstra
     
     # problem solving space
     mesh::FEM.Mesh
+    element_mask::Union{BitMatrix, Nothing} = nothing
     material::FEM.Material
     analysis_type::Union{FEM.PlaneStress, FEM.PlaneStrain, FEM.ThreeDimensional} = FEM.PlaneStress()
 
@@ -25,13 +26,21 @@ Base.@kwdef mutable struct TopOptProblem{D <: ADMM.DistributionMode, T <: Abstra
     # projection params (ϕ → ρ)
     r_filter::T # stencil radius
     β_heaviside::T # for heaviside filter (to render sharper images)
-    η_heaviside::T # threshold for heaviside
+    threshold_heaviside::T # threshold for heaviside
     β_heaviside_growth::T = 2.0 # multiplicative factor when sharpening projection
-    β_heaviside_max::T = 16.0 # cap for heaviside continuation
+    β_heaviside_max::T = 64.0 # cap for heaviside continuation
     β_update_frequency::Int = 50 # iterations between forced β increase
-    grey_band_lo::T = 0.25 # lower bound for "grey" densities
-    grey_band_hi::T = 0.75 # upper bound for "grey" densities
-    grey_fraction_trigger::T = 0.3 # trigger β growth if grey fraction above this
+    grey_band_lo::T = 0.3 # lower bound for "grey" densities
+    grey_band_hi::T = 0.7 # upper bound for "grey" densities
+    grey_fraction_trigger::T = 0.2 # trigger β growth if grey fraction above this
+    
+    # heaviside schedule options (monotonous β growth)
+    use_heaviside_schedule::Bool = false # enable monotonous heaviside schedule
+    heaviside_schedule_type::Symbol = :exponential # :exponential, :linear, :step
+    heaviside_schedule_start::T = 1.0 # starting heaviside value
+    heaviside_schedule_end::T = 16.0 # ending heaviside value
+    heaviside_schedule_frequency::Int = 5 # iterations between heaviside updates
+    heaviside_schedule_growth::T = 1.05 # growth factor for exponential schedule
 
     # numerical stability
     q_relax::T = 0.5 # avoid division by zero for near-void/void elements
@@ -40,7 +49,7 @@ Base.@kwdef mutable struct TopOptProblem{D <: ADMM.DistributionMode, T <: Abstra
     ρ_simp::T = 3.0 # default value in the literature (power law to push to 0 or 1)
 
     # MMA
-    max_iter_mma::Int = 100 # maximum iterations
+    max_iter_mma::Int = 50 # maximum iterations
     mma_tol::T = 1e-4 # convergence tolerance
 
     # distribution type
@@ -101,7 +110,7 @@ ADMM.ProximalTrait(::Type{<:TopOptProblem}) = ADMM.ClosedFormProx()
 get the utils
 """
 
-include("utils/utils.jl")
+include("utils/_utils.jl")
 
 """
 Custom functions
@@ -160,11 +169,16 @@ function ADMM.setup!(state::ADMM.ADMMState{TopOptProblem{D,T}, Nothing}) where {
     f_global = FEM.assemble_force_vector(force_dict_dof, ndof)
     volumes = FEM.get_mesh_volumes(mesh)
 
+    # apply the element mask to ϕ
+    
+    ϕ = fill(T(problem.vol_frac), nel) # initialize at volume fraction
+    apply_element_mask!(ϕ, problem.element_mask)
+
     # put together the context
     
     ctx = TopOptContext(
         nel = nel,
-        ϕ = fill(T(problem.vol_frac), nel), # initialize at volume fraction
+        ϕ = ϕ,
         ρ = zeros(T, nel),
         α = zeros(T, nel), # will be set below
         α_prev = zeros(T, nel), # for tracking convergence
@@ -235,21 +249,37 @@ function ADMM._x_update!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext
     NLopt.xtol_rel!(optimizer, problem.mma_tol)
     NLopt.maxeval!(optimizer, problem.max_iter_mma)
     
+    # Move limiter to prevent design wandering (Zhai approach)
+    move_limit = T(0.1)  # Limit design variable changes to ±0.1
+    NLopt.xtol_abs!(optimizer, move_limit)
+    
     # Volume constraint: Σ(ρ_i * V_i) / Σ(V_i) ≤ vol_frac
     function volume_constraint(ϕ::Vector, grad::Vector)
+        apply_element_mask!(ϕ, problem.element_mask)
+        
         s = (ctx.H * ϕ) ./ ctx.Hs
         
         β = problem.β_heaviside
-        η = problem.η_heaviside
-        denom = tanh(β*η) + tanh(β*(1 - η))
-        ρ_phys = (@. (tanh(β*η) + tanh(β*(s - η))) / denom)
+        heaviside = problem.threshold_heaviside
+        denominator = tanh(β*heaviside) + tanh(β*(1 - heaviside))
+        ρ_phys = (@. (tanh(β*heaviside) + tanh(β*(s - heaviside))) / denominator)
         
-        total_volume = sum(ctx.volumes)
-        current_volume_frac = dot(ρ_phys, ctx.volumes) / total_volume
+        active_volumes = ctx.volumes[unmasked_elements(ϕ, problem.element_mask)]
+        total_volume = sum(active_volumes)
+        current_volume_frac = dot(ρ_phys[unmasked_elements(ϕ, problem.element_mask)], active_volumes) / total_volume
         
         if length(grad) > 0
-            dproj_ds = @. (β * (1 - tanh(β*(s - η))^2)) / denom
-            grad .= (ctx.H' * ((dproj_ds .* ctx.volumes) ./ ctx.Hs)) / total_volume
+            dproj_ds = @. (β * (1 - tanh(β*(s - heaviside))^2)) / denominator
+            # Apply mask consistently: only active elements contribute to gradient
+            active_mask = unmasked_elements(ϕ, problem.element_mask)
+            grad .= 0.0  # Initialize to zero
+            if !isempty(active_mask)
+                active_volumes = ctx.volumes[active_mask]
+                active_dproj_ds = dproj_ds[active_mask]
+                active_Hs = ctx.Hs[active_mask]
+                grad[active_mask] .= (ctx.H[active_mask, active_mask]' * 
+                                    ((active_dproj_ds .* active_volumes) ./ active_Hs)) / total_volume
+            end
         end
         
         return current_volume_frac - problem.vol_frac
@@ -258,6 +288,7 @@ function ADMM._x_update!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext
     NLopt.inequality_constraint!(optimizer, volume_constraint, 1e-6)
     
     function augmented_lagrangian(ϕ::Vector, grad::Vector)
+        apply_element_mask!(ϕ, problem.element_mask)
 
         ctx.ϕ .= ϕ # for convergence check
 
@@ -299,6 +330,16 @@ function ADMM._x_update!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext
     NLopt.min_objective!(optimizer, augmented_lagrangian)
     opt_val, opt_phi, ret = NLopt.optimize(optimizer, ctx.ϕ) # min objective value, ϕ★, return code
 
+    # Additional move limiting: clip changes to prevent design wandering
+    move_limit = T(0.1)
+    ϕ_prev = copy(ctx.ϕ)
+    Δϕ = opt_phi .- ϕ_prev
+    Δϕ_clipped = clamp.(Δϕ, -move_limit, move_limit)
+    opt_phi = ϕ_prev .+ Δϕ_clipped
+    
+    # Ensure bounds are respected
+    opt_phi = clamp.(opt_phi, T(0), T(1))
+
     ctx.ϕ .= opt_phi # update ctx.ϕ
     
     return nothing
@@ -314,6 +355,7 @@ function ADMM._z_update!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext
     ctx = state.ctx
     μ = state.params.μ
 
+    apply_element_mask!(ctx.ϕ, problem.element_mask)
     apply_density_filter!(state)
    
     ctx.K = FEM.assemble_stiffness_matrix(
@@ -380,69 +422,6 @@ function ADMM.check_convergence!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOp
 
 end
 
-function adapt_mu_topopt!(
-    state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext{T}}, 
-    primal_residual::T, 
-    dual_residual::T;
-    τ_incr::T=T(2.0), 
-    τ_decr::T=T(2.0),
-    mu_min::T=T(1e-4),
-    mu_max::T=T(1e4)
-) where {D,T}
-    μ = state.params.μ
-
-    if !state.params.adaptive_μ
-        return nothing
-    end
-
-    if dual_residual < T(1e-12)  # z didn't move; skip μ update this iter
-        return nothing
-    end
-
-    if primal_residual > T(10) * dual_residual
-        state.params.μ = min(T(2) * μ, mu_max)
-    elseif dual_residual > T(10) * primal_residual
-        state.params.μ = max(μ / T(2), mu_min)
-    end
-
-    return nothing
-
-end
-
-function update_heaviside_sharpness!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext{T}}) where {D,T}
-
-    problem = state.problem
-
-    # already at max sharpness
-    if problem.β_heaviside >= problem.β_heaviside_max
-        return nothing
-    end
-
-    ctx = state.ctx
-    nel = ctx.nel
-
-    grey_count = count(ctx.ρ) do ρ_val
-        problem.grey_band_lo < ρ_val < problem.grey_band_hi
-    end
-
-    grey_fraction = nel == 0 ? zero(T) : T(grey_count) / T(nel)
-
-    schedule_hit = problem.β_update_frequency > 0 && mod(state.iter, problem.β_update_frequency) == 0
-    exceeds_grey = grey_fraction > problem.grey_fraction_trigger
-
-    if !(schedule_hit || exceeds_grey)
-        return nothing
-    end
-
-    new_beta = min(problem.β_heaviside * problem.β_heaviside_growth, problem.β_heaviside_max)
-
-    if new_beta > problem.β_heaviside
-        problem.β_heaviside = new_beta
-    end
-
-    return nothing
-end
-
 # custom run_admm! because we need to have our special convergence checks that aren't
 # compatible with the generic version...
 function ADMM._step!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext{T}}) where {D,T}
@@ -466,7 +445,7 @@ function ADMM._step!(state::ADMM.ADMMState{TopOptProblem{D,T}, TopOptContext{T}}
     update_heaviside_sharpness!(state)
 
     # Adaptive μ adjustment based on primal-dual residual balance
-    adapt_mu_topopt!(state, residual_primal, residual_dual)
+    adapt_μ_topopt!(state, residual_primal, residual_dual)
 
     return topopt_converged, residual_primal, residual_dual, epsilon_primal, epsilon_dual
 

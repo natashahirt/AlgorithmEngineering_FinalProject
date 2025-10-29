@@ -23,6 +23,8 @@ function _x_update!(state::ADMMState)
         return f_val + quad_penalty
     end
 
+    # uses Mooncake, which is not currently installed
+    # write custom adjoints
     backend = AutoMooncake()
     grad_func = prepare_gradient(augmented_lagrangian, backend, state.x)
 

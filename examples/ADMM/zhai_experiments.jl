@@ -1,13 +1,5 @@
 """
-Minimal Topology Optimization Example - Michell Truss
-
-2D cantilever structure with stress-constrained compliance minimization using ADMM.
-Classic benchmark problem with left edge fixed and horizontal load on right edge.
-
-Setup:
-- 20×10 mesh
-- Volume fraction: 50%
-- Stress limit: enforced via ADMM
+Minimal Topology Optimization Example - L-domain
 """
 
 using Pkg; Pkg.activate(dirname(dirname(@__DIR__)))
@@ -28,8 +20,8 @@ println("="^70)
 # ============================================================================
 
 # Geometry (aspect ratio 2:1)
-nelx = 40         # Elements in x (keep small for speed)
-nely = 40         # Elements in y
+nelx = 150         # Elements in x (keep small for speed)
+nely = 150         # Elements in y
 Lx = nelx         # Length [m]
 Ly = nely         # Height [m]
 
@@ -38,29 +30,37 @@ E = 1.0           # Young's modulus (normalized)
 ν = 0.3           # Poisson's ratio
 
 # Optimization parameters
-vol_frac = 0.5    # Target volume fraction (50% material)
-σ_lim = 0.25      # Stress limit
-max_iter = 1000   # Maximum ADMM iterations
+vol_frac = 0.30   # Target volume fraction (30% material for L-shape)
+σ_lim = 0.50      # Stress limit (L-shape example)
+max_iter = 100   # Maximum ADMM iterations
 
 # SIMP and filtering parameters
-ρ_simp = 3.0      # SIMP penalty parameter
-r_filter = 0.3    # Density filter radius
+ρ_simp = 3.0      # SIMP penalty parameter (Zhai standard)
+r_filter = 1.5    # Density filter radius (1.5× element width)
 
 # Heaviside projection parameters
-β_heaviside = 1.0         # Initial Heaviside parameter
-η_heaviside = 0.5         # Heaviside threshold
+β_heaviside = 1.0         # Initial Heaviside parameter (start gentle)
+threshold_heaviside = 0.5         # Heaviside threshold (midpoint of density scale)
 β_heaviside_max = 16.0    # Maximum Heaviside parameter
-β_update_frequency = 25   # Heaviside update frequency
+β_update_frequency = 50   # Heaviside update frequency (slower sharpening)
+
+# heaviside schedule parameters (monotonous β growth)
+use_heaviside_schedule = true   # Enable monotonous heaviside schedule (Zhai approach)
+heaviside_schedule_type = :exponential  # :exponential, :linear, :step
+heaviside_schedule_start = 1.0  # Starting β value
+heaviside_schedule_end = 16.0   # Ending β value  
+heaviside_schedule_frequency = 5 # Update every 5 iterations
+heaviside_schedule_growth = 1.05 # Growth factor for exponential schedule
 
 # MMA parameters (for inner subproblems)
-max_iter_mma = 50         # Maximum MMA iterations
+max_iter_mma = 100        # Maximum MMA iterations
 mma_tol = 1e-3            # MMA convergence tolerance
 
 # ADMM parameters
-μ = 1.0                   # Penalty parameter
+μ = 0.5                   # Penalty parameter (Zhai starting value)
 reltol = 1e-2             # Relative tolerance
 abstol = 1e-3             # Absolute tolerance
-adaptive_μ = true         # Enable adaptive penalty
+adaptive_μ = false        # Disable adaptive penalty (use monotone schedule)
 
 # ============================================================================
 # PROBLEM SETUP
@@ -76,33 +76,32 @@ println("  Stress limit: $(σ_lim)")
 # ============================================================================
 
 println("\nGenerating mesh...")
-mesh = FEM.generate_rectangular_mesh(Lx, Ly, nelx, nely)
+mesh = FEM.generate_rectangular_mesh(Lx, Ly, nelx, nely);
+element_mask = FEM.rect_mask(mesh, (61,61), (150,150))
 
 # Get boundary nodes
-left_nodes = FEM.get_boundary_nodes(mesh, "left")
-right_nodes = FEM.get_boundary_nodes(mesh, "right")
 top_nodes = FEM.get_boundary_nodes(mesh, "top")
+right_nodes = FEM.get_boundary_nodes(mesh, "right")
 
-# Boundary conditions: Michell truss (cantilever from left edge)
-# Top left corner: pin (ux=0, uy=0)
-top_left_node = left_nodes[end]  # Last node in left_nodes (top left)
-top_left_dofs = FEM.get_node_dofs(mesh, top_left_node)
-
-# Bottom left corner: pin (ux=0, uy=0)
-bottom_left_node = left_nodes[1]  # First node in left_nodes (bottom left)
-bottom_left_dofs = FEM.get_node_dofs(mesh, bottom_left_node)
-
-boundary_dofs = [top_left_dofs[1], top_left_dofs[2], bottom_left_dofs[1], bottom_left_dofs[2]]
+# Boundary conditions: Fix the top row of nodes (ux=0, uy=0 for all top_nodes)
+boundary_dofs = Int[]
+for node_id in top_nodes
+    dofs = FEM.get_node_dofs(mesh, node_id)
+    push!(boundary_dofs, Int(dofs[1]))  # ux (ensure integer)
+    push!(boundary_dofs, Int(dofs[2]))  # uy (ensure integer)
+end
 
 println("  Boundary: pins at top left and bottom left corners")
 
-# Loading: downward force at middle of right edge
-right_mid_idx = div(length(right_nodes) + 1, 2)
-load_node = right_nodes[right_mid_idx]
+# Loading: downward force at specific right edge nodes (x = 150, y = [91,92,93,94])
 
-forces = Dict(load_node => SVector(0.0, -1.0))  # 1N downward
+# Find nodes at x = 150, y = [60, 59, 58, 57]
+selected_y = [60, 59, 58, 57]
+right_force_nodes = [node.id for node in values(mesh.nodes) if isapprox(node.coords[1], 150.0; atol=1e-5) && (Int(round(node.coords[2])) in selected_y)]
 
-println("  Load: 1N downward at right edge center (node $(load_node))")
+forces = Dict(nid => SVector(0.0, -1.0) for nid in right_force_nodes)
+
+println("  Load: 1N downward at right edge nodes x=150, y=$(selected_y) (node ids: $(right_force_nodes))")
 
 # ============================================================================
 # TOPOLOGY OPTIMIZATION PROBLEM
@@ -114,6 +113,7 @@ material = FEM.LinearElastic(E, ν, 1.0)  # E, ν, density
 
 problem = ADMM.TopOptProblem(
     mesh = mesh,
+    element_mask = element_mask,
     material = material,
     analysis_type = FEM.PlaneStress(),
     forces = forces,
@@ -122,12 +122,19 @@ problem = ADMM.TopOptProblem(
     σ_lim = σ_lim,
     r_filter = r_filter,
     β_heaviside = β_heaviside,
-    η_heaviside = η_heaviside,
+    threshold_heaviside = threshold_heaviside,
     β_heaviside_max = β_heaviside_max,
     β_update_frequency = β_update_frequency,
     ρ_simp = ρ_simp,
     max_iter_mma = max_iter_mma,
-    mma_tol = mma_tol
+    mma_tol = mma_tol,
+    # heaviside schedule options (Zhai approach)
+    use_heaviside_schedule = use_heaviside_schedule,
+    heaviside_schedule_type = heaviside_schedule_type,
+    heaviside_schedule_start = heaviside_schedule_start,
+    heaviside_schedule_end = heaviside_schedule_end,
+    heaviside_schedule_frequency = heaviside_schedule_frequency,
+    heaviside_schedule_growth = heaviside_schedule_growth
 )
 
 # ============================================================================
@@ -254,7 +261,7 @@ ax2 = Axis(fig[1, 3],
 σ̃_grid = reshape(state_final.ctx.σ̃, nelx, nely)
 
 # Mask: show stress only for solid elements (ρ > 0.5), NaN for void
-ρ_binary = ρ_grid .> problem.η_heaviside + 0.05
+ρ_binary = ρ_grid .> problem.threshold_heaviside + 0.05
 σ̃_binary = copy(σ̃_grid)
 σ̃_binary[.!ρ_binary] .= NaN  # Set void elements to NaN
 
@@ -267,17 +274,41 @@ Colorbar(fig[1, 4], hm2, label="Stress σ̃ (solid elements)")
 
 # Add boundary condition markers to both plots
 for ax in [ax1, ax2]
-    # Top left: Pin support (fixed in x and y) - shown as triangle
-    scatter!(ax, [0.0], [Ly], marker=:utriangle, markersize=20, color=:blue, strokewidth=2, strokecolor=:black)
-    # Bottom left: Pin support (fixed in x and y) - shown as triangle
-    scatter!(ax, [0.0], [0.0], marker=:utriangle, markersize=20, color=:blue, strokewidth=2, strokecolor=:black)
-    # Load point at right edge center - shown as downward arrow
-    scatter!(ax, [Lx], [Ly/2], marker=:dtriangle, markersize=20, color=:red, strokewidth=2, strokecolor=:black)
+    # Automatically detect and visualize clamped nodes
+    clamped_dofs = Set(boundary_dofs)
+    clamped_nodes = Set{Int}()
+    
+    for node_id in 1:length(mesh.nodes)
+        node_dofs = FEM.get_node_dofs(mesh, node_id)
+        if all(dof in clamped_dofs for dof in node_dofs)
+            push!(clamped_nodes, node_id)
+        end
+    end
+    
+    # Show clamped nodes
+    if !isempty(clamped_nodes)
+        clamped_x = [mesh.nodes[node_id].coords[1] for node_id in clamped_nodes]
+        clamped_y = [mesh.nodes[node_id].coords[2] for node_id in clamped_nodes]
+        
+        scatter!(ax, clamped_x, clamped_y, 
+                 marker=:utriangle, markersize=6, color=:blue, 
+                 strokewidth=1, strokecolor=:black, alpha=0.8)
+    end
+    
+    # Show loaded nodes
+    if !isempty(right_force_nodes)
+        load_x = [mesh.nodes[node_id].coords[1] for node_id in right_force_nodes]
+        load_y = [mesh.nodes[node_id].coords[2] for node_id in right_force_nodes]
+        
+        scatter!(ax, load_x, load_y, 
+                 marker=:dtriangle, markersize=12, color=:red, 
+                 strokewidth=2, strokecolor=:black, alpha=0.9)
+    end
 end
 
 # Overall title with key metrics
 Label(fig[0, :], 
-      @sprintf("Michell Truss: Vol=%.1f%%, σmax=%.3f, Compliance=%.2e", 
+      @sprintf("L shaped domain: Vol=%.1f%%, σmax=%.3f, Compliance=%.2e", 
                actual_volume_frac*100, max_stress, compliance),
       fontsize=20,
       font=:bold)
@@ -285,7 +316,7 @@ Label(fig[0, :],
 # Save figure
 output_dir = joinpath(@__DIR__, "output")
 mkpath(output_dir)
-output_file = joinpath(output_dir, "topopt_michell_result.png")
+output_file = joinpath(output_dir, "l_domain_result.png")
 save(output_file, fig)
 
 println("  Saved visualization to: $(output_file)")

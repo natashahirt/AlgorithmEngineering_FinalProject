@@ -79,6 +79,19 @@ function compute_gradients_adjoint!(state::ADMM.ADMMState{TopOptProblem{D,T}, To
         ctx.∇L_ϕ[i] = pure_compliance + compliance_derivative + σ_constraint
 
     end
+    
+    # Apply mask: zero out gradients for masked elements
+    if !isnothing(problem.element_mask)
+        nelx, nely = size(problem.element_mask)
+        for j in 1:nely
+            for i in 1:nelx
+                if !problem.element_mask[i,j] # if this element is masked
+                    element_id = (j-1) * nelx + i
+                    ctx.∇L_ϕ[element_id] = 0.0
+                end
+            end
+        end
+    end
 
     # apply filter transpose
     # ∂L/∂ρ

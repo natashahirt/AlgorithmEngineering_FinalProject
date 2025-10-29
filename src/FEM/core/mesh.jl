@@ -127,6 +127,50 @@ function generate_rectangular_mesh(width, height, nx, ny; element_type::Symbol =
 end
 
 """
+generate an l-shaped mask with the integer values of the elements being masked out
+e.g. if rect_mesh is 150x150 and the notch is 90x90, then notch_tl is (60,0) and notch_br is (150,90)
+the values are inclusive.
+"""
+function rect_mask(rect_mesh::Mesh, notch_tl::Tuple{Int64,Int64}, notch_br::Tuple{Int64, Int64})
+
+    x1, y1 = notch_tl
+    x2, y2 = notch_br
+
+    nelx = length(unique([node.coords[1] for node in rect_mesh.nodes])) - 1
+    nely = length(unique([node.coords[2] for node in rect_mesh.nodes])) - 1
+
+    element_mask = trues(nelx, nely) # generate boolean mask
+
+    for j in 1:nely
+        for i in 1:nelx
+            if i >= x1 && i <= x2 && j >= y1 && j <= y2
+                element_mask[i,j] = false
+            end
+        end
+    end
+
+    return element_mask
+
+end
+
+"""
+union a bunch of boolean masks so that the false regions in each mask accumulate
+"""
+function mask_union(masks::Vector{Matrix{Bool}})
+
+    @assert length(masks) > 1 ? all(size(mask) == size(masks[1]) for mask in masks[2:end]) : true "Masks need to have the same size."
+
+    result = copy(masks[1])
+
+    for i in 2:length(masks)
+        result .= result .& masks[i]
+    end
+
+    return result
+
+end
+
+"""
 get_nodes(mesh::Mesh)
 
 Get all nodes from mesh.

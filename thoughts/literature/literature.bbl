@@ -1,0 +1,516 @@
+% $ biblatex auxiliary file $
+% $ biblatex bbl format version 3.3 $
+% Do not modify the above lines!
+%
+% This is an auxiliary file used by the 'biblatex' package.
+% This file may safely be deleted. It will be recreated as
+% required.
+%
+\begingroup
+\makeatletter
+\@ifundefined{ver@biblatex.sty}
+  {\@latex@error
+     {Missing 'biblatex' package}
+     {The bibliography requires the 'biblatex' package.}
+      \aftergroup\endinput}
+  {}
+\endgroup
+
+\datalist[entry]{nty/global//global/global/global}
+  \entry{aageTopologyOptimizationUsing2015}{article}{}{}
+    \name{author}{3}{}{%
+      {{hash=AN}{%
+         family={Aage},
+         familyi={A\bibinitperiod},
+         given={Niels},
+         giveni={N\bibinitperiod},
+      }}%
+      {{hash=AE}{%
+         family={Andreassen},
+         familyi={A\bibinitperiod},
+         given={Erik},
+         giveni={E\bibinitperiod},
+      }}%
+      {{hash=LBS}{%
+         family={Lazarov},
+         familyi={L\bibinitperiod},
+         given={Boyan\bibnamedelima Stefanov},
+         giveni={B\bibinitperiod\bibinitdelim S\bibinitperiod},
+      }}%
+    }
+    \keyw{Homogenization,Large scale,Parallel computing,PETSc,Topology optimization}
+    \strng{namehash}{ANAELBS1}
+    \strng{fullhash}{ANAELBS1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{shorttitle}
+    \field{sortinit}{A}
+    \field{sortinithash}{A}
+    \field{abstract}{%
+    This paper presents a flexible framework for parallel and easy-to-implement topology optimization using the Portable and Extendable Toolkit for Scientific Computing (PETSc). The presented framework is based on a standardized, and freely available library and in the published form it solves the minimum compliance problem on structured grids, using standard FEM and filtering techniques. For completeness a parallel implementation of the Method of Moving Asymptotes is included as well. The capabilities are exemplified by minimum compliance and homogenization problems. In both cases the unprecedented fine discretization reveals new design features, providing novel insight. The code can be downloaded from www.topopt.dtu.dk/PETSc.%
+    }
+    \verb{doi}
+    \verb 10.1007/s00158-014-1157-0
+    \endverb
+    \field{issn}{1615-1488}
+    \field{number}{3}
+    \field{pages}{565\bibrangedash 572}
+    \field{shorttitle}{Topology Optimization Using {{PETSc}}}
+    \field{title}{Topology Optimization Using {{PETSc}}: {{An}} Easy-to-Use, Fully Parallel, Open Source Topology Optimization Framework}
+    \field{volume}{51}
+    \field{langid}{english}
+    \verb{file}
+    \verb /Users/tashahirt/Zotero/storage/WP6ZTGQB/Aage et al. - 2015 - Topolog
+    \verb y optimization using PETSc An easy-to-use, fully parallel, open sourc
+    \verb e topology optimization.pdf
+    \endverb
+    \field{journaltitle}{Structural and Multidisciplinary Optimization}
+    \field{month}{03}
+    \field{year}{2015}
+    \field{urlday}{16}
+    \field{urlmonth}{10}
+    \field{urlyear}{2025}
+  \endentry
+
+  \entry{bendsoeGeneratingOptimalTopologies1988}{article}{}{}
+    \name{author}{2}{}{%
+      {{hash=BMP}{%
+         family={Bends{\o}e},
+         familyi={B\bibinitperiod},
+         given={Martin\bibnamedelima Philip},
+         giveni={M\bibinitperiod\bibinitdelim P\bibinitperiod},
+      }}%
+      {{hash=KN}{%
+         family={Kikuchi},
+         familyi={K\bibinitperiod},
+         given={Noboru},
+         giveni={N\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{BMPKN1}
+    \strng{fullhash}{BMPKN1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{B}
+    \field{sortinithash}{B}
+    \field{abstract}{%
+    Optimal shape design of structural elements based on boundary variations results in final designs that are topologically equivalent to the initial choice of design, and general, stable computational schemes for this approach often require some kind of remeshing of the finite element approximation of the analysis problem. This paper presents a methodology for optimal shape design where both these drawbacks can be avoided. The method is related to modern production techniques and consists of computing the optimal distribution in space of an anisotropic material that is constructed by introducing an infimum of periodically distributed small holes in a given homogeneous, isotropic material, with the requirement that the resulting structure can carry the given loads as well as satisfy other design requirements. The computation of effective material properties for the anisotropic material is carried out using the method of homogenization. Computational results are presented and compared with results obtained by boundary variations.%
+    }
+    \verb{doi}
+    \verb 10.1016/0045-7825(88)90086-2
+    \endverb
+    \field{issn}{0045-7825}
+    \field{number}{2}
+    \field{pages}{197\bibrangedash 224}
+    \field{title}{Generating Optimal Topologies in Structural Design Using a Homogenization Method}
+    \field{volume}{71}
+    \verb{file}
+    \verb /Users/tashahirt/Zotero/storage/3XG5JDQJ/Bendsøe and Kikuchi - 1988
+    \verb - Generating optimal topologies in structural design using a homogeni
+    \verb zation method.pdf;/Users/tashahirt/Zotero/storage/R3GNN6QQ/0045782588
+    \verb 900862.html
+    \endverb
+    \field{journaltitle}{Computer Methods in Applied Mechanics and Engineering}
+    \field{month}{11}
+    \field{year}{1988}
+    \field{urlday}{16}
+    \field{urlmonth}{10}
+    \field{urlyear}{2025}
+  \endentry
+
+  \entry{boydDistributedOptimizationStatistical2010}{article}{}{}
+    \name{author}{1}{}{%
+      {{hash=BS}{%
+         family={Boyd},
+         familyi={B\bibinitperiod},
+         given={Stephen},
+         giveni={S\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{BS1}
+    \strng{fullhash}{BS1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{B}
+    \field{sortinithash}{B}
+    \verb{doi}
+    \verb 10.1561/2200000016
+    \endverb
+    \field{issn}{1935-8237, 1935-8245}
+    \field{number}{1}
+    \field{pages}{1\bibrangedash 122}
+    \field{title}{Distributed {{Optimization}} and {{Statistical Learning}} via the {{Alternating Direction Method}} of {{Multipliers}}}
+    \field{volume}{3}
+    \field{langid}{english}
+    \verb{file}
+    \verb /Users/tashahirt/Zotero/storage/C7YKFRGH/Boyd - 2010 - Distributed Op
+    \verb timization and Statistical Learning via the Alternating Direction Met
+    \verb hod of Multiplier.pdf
+    \endverb
+    \field{journaltitle}{Foundations and Trends{\textregistered} in Machine Learning}
+    \field{year}{2010}
+    \field{urlday}{16}
+    \field{urlmonth}{10}
+    \field{urlyear}{2025}
+  \endentry
+
+  \entry{fouratiLargescaleSmoothPlastic2021}{article}{}{}
+    \name{author}{4}{}{%
+      {{hash=FM}{%
+         family={Fourati},
+         familyi={F\bibinitperiod},
+         given={Mohamed},
+         giveni={M\bibinitperiod},
+      }}%
+      {{hash=KZ}{%
+         family={Kammoun},
+         familyi={K\bibinitperiod},
+         given={Zied},
+         giveni={Z\bibinitperiod},
+      }}%
+      {{hash=NJ}{%
+         family={Neji},
+         familyi={N\bibinitperiod},
+         given={Jamel},
+         giveni={J\bibinitperiod},
+      }}%
+      {{hash=SH}{%
+         family={Smaoui},
+         familyi={S\bibinitperiod},
+         given={Hichem},
+         giveni={H\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{FM+1}
+    \strng{fullhash}{FMKZNJSH1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{F}
+    \field{sortinithash}{F}
+    \verb{doi}
+    \verb 10.5802/crmeca.88
+    \endverb
+    \field{issn}{1873-7234}
+    \field{number}{2}
+    \field{pages}{323\bibrangedash 344}
+    \field{title}{{Large-scale smooth plastic topology optimization using domain decomposition}}
+    \field{volume}{349}
+    \field{langid}{french}
+    \verb{file}
+    \verb /Users/tashahirt/Zotero/storage/3EPNE2BH/Fourati et al. - 2021 - Larg
+    \verb e-scale smooth plastic topology optimization using domain decompositi
+    \verb on.pdf
+    \endverb
+    \field{journaltitle}{Comptes Rendus. M{\'e}canique}
+    \field{year}{2021}
+    \field{urlday}{16}
+    \field{urlmonth}{10}
+    \field{urlyear}{2025}
+  \endentry
+
+  \entry{medrickyComparisonFETIbasedDomain2021}{misc}{}{}
+    \name{author}{4}{}{%
+      {{hash=MT}{%
+         family={Med{\v r}ick{\'y}},
+         familyi={M\bibinitperiod},
+         given={Tom{\'a}{\v s}},
+         giveni={T\bibinitperiod},
+      }}%
+      {{hash=DM}{%
+         family={Do{\v s}k{\'a}{\v r}},
+         familyi={D\bibinitperiod},
+         given={Martin},
+         giveni={M\bibinitperiod},
+      }}%
+      {{hash=PI}{%
+         family={Pultarov{\'a}},
+         familyi={P\bibinitperiod},
+         given={Ivana},
+         giveni={I\bibinitperiod},
+      }}%
+      {{hash=ZJ}{%
+         family={Zeman},
+         familyi={Z\bibinitperiod},
+         given={Jan},
+         giveni={J\bibinitperiod},
+      }}%
+    }
+    \list{publisher}{1}{%
+      {arXiv}%
+    }
+    \keyw{Computer Science - Computational Engineering Finance and Science}
+    \strng{namehash}{MT+1}
+    \strng{fullhash}{MTDMPIZJ1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{M}
+    \field{sortinithash}{M}
+    \field{abstract}{%
+    We critically assess the performance of several variants of dual and dual-primal domain decomposition strategies in problems with fixed subdomain partitioning and high heterogeneity in stiffness coefficients typically arising in topology optimization of modular structures. Our study considers Total FETI and FETI Dual-Primal methods along with three enhancements: k-scaling, full orthogonalization of the search directions, and considering multiple search-direction at once, which gives us twelve variants in total. We test these variants both on academic examples and snapshots of topology optimization iterations. Based on the results, we conclude that (i) the original methods exhibit very slow convergence in the presence of severe heterogeneity in stiffness coefficients, which makes them practically useless, (ii) the full orthogonalization enhancement helps only for mild heterogeneity, and (iii) the only robust method is FETI Dual-Primal with multiple search direction and k-scaling.%
+    }
+    \verb{doi}
+    \verb 10.48550/arXiv.2111.11728
+    \endverb
+    \verb{eprint}
+    \verb 2111.11728
+    \endverb
+    \field{number}{arXiv:2111.11728}
+    \field{title}{Comparison of {{FETI-based}} Domain Decomposition Methods for Topology Optimization Problems}
+    \verb{file}
+    \verb /Users/tashahirt/Zotero/storage/5YIEHG5G/Medřický et al. - 2021 - C
+    \verb omparison of FETI-based domain decomposition methods for topology opt
+    \verb imization problems.pdf;/Users/tashahirt/Zotero/storage/N4IJVB9N/2111.
+    \verb html
+    \endverb
+    \field{eprinttype}{arXiv}
+    \field{eprintclass}{cs}
+    \field{month}{11}
+    \field{year}{2021}
+    \field{urlday}{16}
+    \field{urlmonth}{10}
+    \field{urlyear}{2025}
+  \endentry
+
+  \entry{moehlePortfolioConstructionLinearly2022}{misc}{}{}
+    \name{author}{4}{}{%
+      {{hash=MN}{%
+         family={Moehle},
+         familyi={M\bibinitperiod},
+         given={Nicholas},
+         giveni={N\bibinitperiod},
+      }}%
+      {{hash=GJ}{%
+         family={Gindi},
+         familyi={G\bibinitperiod},
+         given={Jack},
+         giveni={J\bibinitperiod},
+      }}%
+      {{hash=BS}{%
+         family={Boyd},
+         familyi={B\bibinitperiod},
+         given={Stephen},
+         giveni={S\bibinitperiod},
+      }}%
+      {{hash=KM}{%
+         family={Kochenderfer},
+         familyi={K\bibinitperiod},
+         given={Mykel},
+         giveni={M\bibinitperiod},
+      }}%
+    }
+    \list{publisher}{1}{%
+      {arXiv}%
+    }
+    \keyw{Mathematics - Optimization and Control,Quantitative Finance - Portfolio Management}
+    \strng{namehash}{MN+1}
+    \strng{fullhash}{MNGJBSKM1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{M}
+    \field{sortinithash}{M}
+    \field{abstract}{%
+    Mean-variance portfolio optimization problems often involve separable nonconvex terms, including penalties on capital gains, integer share constraints, and minimum position and trade sizes. We propose a heuristic algorithm for such problems based on the alternating direction method of multipliers (ADMM). This method allows for solve times in tens to hundreds of milliseconds with around 1000 securities and 100 risk factors. We also obtain a bound on the achievable performance. Our heuristic and bound are both derived from similar results for other optimization problems with a separable objective and affine equality constraints. We discuss a concrete implementation in the case where the separable terms in the objective are piecewise quadratic, and we empirically demonstrate its effectiveness for tax-aware portfolio construction.%
+    }
+    \verb{doi}
+    \verb 10.48550/arXiv.2103.05455
+    \endverb
+    \verb{eprint}
+    \verb 2103.05455
+    \endverb
+    \field{number}{arXiv:2103.05455}
+    \field{title}{Portfolio {{Construction}} as {{Linearly Constrained Separable Optimization}}}
+    \verb{file}
+    \verb /Users/tashahirt/Zotero/storage/DA53J6C7/Moehle et al. - 2022 - Portf
+    \verb olio Construction as Linearly Constrained Separable Optimization.pdf;
+    \verb /Users/tashahirt/Zotero/storage/AYUPUGPR/2103.html
+    \endverb
+    \field{eprinttype}{arXiv}
+    \field{eprintclass}{math}
+    \field{month}{07}
+    \field{year}{2022}
+    \field{urlday}{16}
+    \field{urlmonth}{10}
+    \field{urlyear}{2025}
+  \endentry
+
+  \entry{smitTopologyOptimizationUsing2021}{article}{}{}
+    \name{author}{4}{}{%
+      {{hash=ST}{%
+         family={Smit},
+         familyi={S\bibinitperiod},
+         given={Thijs},
+         giveni={T\bibinitperiod},
+      }}%
+      {{hash=AN}{%
+         family={Aage},
+         familyi={A\bibinitperiod},
+         given={Niels},
+         giveni={N\bibinitperiod},
+      }}%
+      {{hash=FSJ}{%
+         family={Ferguson},
+         familyi={F\bibinitperiod},
+         given={Stephen\bibnamedelima J.},
+         giveni={S\bibinitperiod\bibinitdelim J\bibinitperiod},
+      }}%
+      {{hash=HB}{%
+         family={Helgason},
+         familyi={H\bibinitperiod},
+         given={Benedikt},
+         giveni={B\bibinitperiod},
+      }}%
+    }
+    \keyw{3D printing,Infill,Large scale,Parallel computing,PETSc,Porous structures,Python C-Extension module,Python wrapper,Robust design,Topology optimization}
+    \strng{namehash}{ST+1}
+    \strng{fullhash}{STANFSJHB1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{shorttitle}
+    \field{sortinit}{S}
+    \field{sortinithash}{S}
+    \field{abstract}{%
+    This paper presents a Python wrapper and extended functionality of the parallel topology optimization framework introduced by Aage et al. (Topology optimization using PETSc: an easy-to-use, fully parallel, open source topology optimization framework. Struct Multidiscip Optim 51(3):565--572, 2015). The Python interface, which simplifies the problem definition, is intended to expand the potential user base and to ease the use of large-scale topology optimization for educational purposes. The functionality of the topology optimization framework is extended to include passive domains and local volume constraints among others, which contributes to its usability to real-world design applications. The functionality is demonstrated via the cantilever beam, bracket and torsion ball examples. Several tests are provided which can be used to verify the proper installation and for evaluating the performance of the user's system setup. The open-source code is available at https://github.com/thsmit/, repository \$\${\textbackslash}texttt \{TopOpt{\textbackslash}\_in{\textbackslash}\_PETSc{\textbackslash}\_wrapped{\textbackslash}\_in{\textbackslash}\_Python\}\$\$.%
+    }
+    \verb{doi}
+    \verb 10.1007/s00158-021-03018-7
+    \endverb
+    \field{issn}{1615-1488}
+    \field{number}{6}
+    \field{pages}{4343\bibrangedash 4353}
+    \field{shorttitle}{Topology Optimization Using {{PETSc}}}
+    \field{title}{Topology Optimization Using {{PETSc}}: A {{Python}} Wrapper and Extended Functionality}
+    \field{volume}{64}
+    \field{langid}{english}
+    \verb{file}
+    \verb /Users/tashahirt/Zotero/storage/379XTZDJ/Smit et al. - 2021 - Topolog
+    \verb y optimization using PETSc a Python wrapper and extended functionalit
+    \verb y.pdf
+    \endverb
+    \field{journaltitle}{Structural and Multidisciplinary Optimization}
+    \field{month}{12}
+    \field{year}{2021}
+    \field{urlday}{16}
+    \field{urlmonth}{10}
+    \field{urlyear}{2025}
+  \endentry
+
+  \entry{xiaHybridParallelStrategy2023}{article}{}{}
+    \name{author}{6}{}{%
+      {{hash=XZ}{%
+         family={Xia},
+         familyi={X\bibinitperiod},
+         given={Zhaohui},
+         giveni={Z\bibinitperiod},
+      }}%
+      {{hash=GB}{%
+         family={Gao},
+         familyi={G\bibinitperiod},
+         given={Baichuan},
+         giveni={B\bibinitperiod},
+      }}%
+      {{hash=YC}{%
+         family={Yu},
+         familyi={Y\bibinitperiod},
+         given={Chen},
+         giveni={C\bibinitperiod},
+      }}%
+      {{hash=HH}{%
+         family={Han},
+         familyi={H\bibinitperiod},
+         given={Haotian},
+         giveni={H\bibinitperiod},
+      }}%
+      {{hash=ZH}{%
+         family={Zhang},
+         familyi={Z\bibinitperiod},
+         given={Haobo},
+         giveni={H\bibinitperiod},
+      }}%
+      {{hash=WS}{%
+         family={Wang},
+         familyi={W\bibinitperiod},
+         given={Shuting},
+         giveni={S\bibinitperiod},
+      }}%
+    }
+    \list{publisher}{1}{%
+      {Tech Science Press}%
+    }
+    \strng{namehash}{XZ+1}
+    \strng{fullhash}{XZGBYCHHZHWS1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{X}
+    \field{sortinithash}{X}
+    \field{abstract}{%
+    This paper aims to solve large-scale and complex isogeometric topology optimization problems that consume significant computational resources. A novel isogeometric topology optimization method with a hybrid parallel strategy ... {\textbar} Find, read and cite all the research you need on Tech Science Press%
+    }
+    \verb{doi}
+    \verb 10.32604/cmes.2023.029177
+    \endverb
+    \field{issn}{1526-1492, 1526-1506}
+    \field{number}{2}
+    \field{pages}{1103\bibrangedash 1137}
+    \field{title}{A {{Hybrid Parallel Strategy}} for {{Isogeometric Topology Optimization}} via {{CPU}}/{{GPU Heterogeneous Computing}}}
+    \field{volume}{138}
+    \field{langid}{english}
+    \verb{file}
+    \verb /Users/tashahirt/Zotero/storage/ZMIBIUND/Xia et al. - 2023 - A Hybrid
+    \verb  Parallel Strategy for Isogeometric Topology Optimization via CPUGPU
+    \verb Heterogeneous Computin.pdf
+    \endverb
+    \field{journaltitle}{Computer Modeling in Engineering \& Sciences}
+    \field{year}{2023}
+    \field{urlday}{16}
+    \field{urlmonth}{10}
+    \field{urlyear}{2025}
+  \endentry
+
+  \entry{zhaiAlternatingOptimizationDesign2021}{article}{}{}
+    \name{author}{3}{}{%
+      {{hash=ZX}{%
+         family={Zhai},
+         familyi={Z\bibinitperiod},
+         given={Xiaoya},
+         giveni={X\bibinitperiod},
+      }}%
+      {{hash=CF}{%
+         family={Chen},
+         familyi={C\bibinitperiod},
+         given={Falai},
+         giveni={F\bibinitperiod},
+      }}%
+      {{hash=WJ}{%
+         family={Wu},
+         familyi={W\bibinitperiod},
+         given={Jun},
+         giveni={J\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{ZXCFWJ1}
+    \strng{fullhash}{ZXCFWJ1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{Z}
+    \field{sortinithash}{Z}
+    \field{abstract}{%
+    PDF {\textbar} Handling stress constraints is an important topic in topology optimization. In this paper, we introduce an interpretation of stresses as... {\textbar} Find, read and cite all the research you need on ResearchGate%
+    }
+    \verb{doi}
+    \verb 10.1007/s00158-021-02985-1
+    \endverb
+    \field{title}{Alternating {{Optimization}} of {{Design}} and {{Stress}} for {{Stress-Constrained Topology Optimization}}}
+    \field{langid}{english}
+    \verb{file}
+    \verb /Users/tashahirt/Zotero/storage/RFXSJNX2/Zhai - Alternating Optimizat
+    \verb ion of Design and Stress for Stress-Constrained Topology Optimization
+    \verb .pdf;/Users/tashahirt/Zotero/storage/2UJWPMZG/352399466_Alternating_O
+    \verb ptimization_of_Design_and_Stress_for_Stress-Constrained_Topology_Opti
+    \verb miz.html
+    \endverb
+    \field{journaltitle}{Structural and Multidisciplinary Optimization}
+    \field{year}{2021}
+    \field{urlday}{16}
+    \field{urlmonth}{10}
+    \field{urlyear}{2025}
+  \endentry
+\enddatalist
+\endinput

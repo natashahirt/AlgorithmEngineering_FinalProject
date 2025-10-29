@@ -4,8 +4,8 @@ module ADMM
 using MPI # message passing interface for distributed systems
 using LinearAlgebra # linear algebra
 using Optim # for optimization
-using Mooncake # automatic differentiation
-using DifferentiationInterface # interface for Mooncake.jl
+# using Mooncake # automatic differentiation
+# using DifferentiationInterface # interface for Mooncake.jl
 using Printf # fancy printing
 
 # import for topopt

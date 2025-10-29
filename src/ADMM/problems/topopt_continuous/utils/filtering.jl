@@ -53,11 +53,11 @@ heaviside projection to improve sharpness
 function heaviside_projection(problem::TopOptProblem{D,T}, ϕ::T) where {D,T <: AbstractFloat}
 
     β = problem.β_heaviside # sharpness (larger = more binary)
-    η = problem.η_heaviside # threshold (generally 0.5)
+    heaviside = problem.threshold_heaviside # threshold (generally 0.5)
 
-    tanh_βη = tanh(β * η)
+    tanh_βheaviside = tanh(β * heaviside)
 
-    ρ = (tanh_βη + tanh(β * (ϕ - η))) / (tanh_βη + tanh(β * (one(T) - η)))
+    ρ = (tanh_βheaviside + tanh(β * (ϕ - heaviside))) / (tanh_βheaviside + tanh(β * (one(T) - heaviside)))
 
     return ρ
 
