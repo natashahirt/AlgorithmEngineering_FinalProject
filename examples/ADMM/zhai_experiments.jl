@@ -31,7 +31,7 @@ E = 1.0           # Young's modulus (normalized)
 
 # Optimization parameters
 vol_frac = 0.30   # Target volume fraction (30% material for L-shape)
-σ_lim = 0.50      # Stress limit (L-shape example)
+σ_lim = 5.      # Stress limit (L-shape example)
 max_iter = 100   # Maximum ADMM iterations
 
 # SIMP and filtering parameters
