@@ -41,7 +41,7 @@ r_filter = 1.5    # Density filter radius (1.5× element width)
 # Heaviside projection parameters
 β_heaviside = 1.0         # Initial Heaviside parameter (start gentle)
 threshold_heaviside = 0.5         # Heaviside threshold (midpoint of density scale)
-β_heaviside_max = 16.0    # Maximum Heaviside parameter
+β_heaviside_max = 64.0    # Maximum Heaviside parameter
 β_update_frequency = 50   # Heaviside update frequency (slower sharpening)
 
 # heaviside schedule parameters (monotonous β growth)
@@ -181,10 +181,14 @@ println("  Final μ: $(state_final.params.μ)")
 println("  Final β: $(state_final.problem.β_heaviside)")
 
 # Volume fraction achieved
-volumes = state_final.ctx.volumes
-total_volume = sum(volumes)
-actual_volume_frac = dot(state_final.ctx.ρ, volumes) / total_volume
-
+s = (state_final.ctx.H * state_final.ctx.ϕ) ./ state_final.ctx.Hs
+β = state_final.problem.β_heaviside
+heaviside = state_final.problem.threshold_heaviside
+denominator = tanh(β*heaviside) + tanh(β*(1 - heaviside))
+ρ_phys = (@. (tanh(β*heaviside) + tanh(β*(s - heaviside))) / denominator)
+active_volumes = state_final.ctx.volumes[ADMM.unmasked_elements(state_final.ctx.ϕ, state_final.problem.element_mask)]
+total_volume = sum(active_volumes)
+current_volume_frac = dot(ρ_phys[ADMM.unmasked_elements(state_final.ctx.ϕ, state_final.problem.element_mask)], active_volumes) / total_volume
 println("\nConstraints:")
 @printf("  Volume fraction: %.3f (target: %.3f)\n", actual_volume_frac, vol_frac)
 

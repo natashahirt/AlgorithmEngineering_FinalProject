@@ -9,9 +9,14 @@ solve_displacements(K, f)
 Solve the linear system `K * u = f` for the displacement vector.
 Uses direct solver with fallback to pseudo-inverse if singular.
 """
-function solve_displacements(K, f)
+function solve_displacements(K, f; solver::Symbol=:standard)
+    solver in [:standard, :cpp] || throw(ArgumentError("Solver must be either :standard (default) or :cpp, got :$solver"))
     try
-        return K \ f
+        if solver == :standard
+            return K \ f
+        elseif solver == :cpp
+            return FEM.FFI.cpp_solve(K, f)
+        end
     catch e
         @warn "Direct solver failed: $e"
         return pinv(K) * f

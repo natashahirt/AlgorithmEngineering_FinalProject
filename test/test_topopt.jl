@@ -45,7 +45,7 @@ using AlgorithmEngineering
             σ_lim = 1.0,
             r_filter = 1.5,
             β_heaviside = 1.0,
-            η_heaviside = 0.5,
+            threshold_heaviside = 0.5,
             max_iter_mma = 10,
             mma_tol = 1e-2
         )

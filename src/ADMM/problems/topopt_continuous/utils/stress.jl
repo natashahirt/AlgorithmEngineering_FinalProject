@@ -26,7 +26,8 @@ function compute_element_stresses!(state::ADMM.ADMMState{TopOptProblem{D,T}, Top
         ctx.σ̄[i] = von_mises_stress(view(ctx.σ, :, i), problem.analysis_type)
 
         # σ̃_e = ρ_e ^ q * σ̄_e
-        ctx.σ̃[i] = ctx.ρ[i]^problem.q_relax * ctx.σ̄[i]
+        ρ_e = max(ctx.ρ[i], problem.ρ_min)
+        ctx.σ̃[i] = ctx.σ̄[i] * (ρ_e^problem.q_relax)
 
     end
     

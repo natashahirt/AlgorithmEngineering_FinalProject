@@ -30,9 +30,9 @@ Base.@kwdef mutable struct TopOptProblem{D <: ADMM.DistributionMode, T <: Abstra
     β_heaviside_growth::T = 2.0 # multiplicative factor when sharpening projection
     β_heaviside_max::T = 64.0 # cap for heaviside continuation
     β_update_frequency::Int = 50 # iterations between forced β increase
-    grey_band_lo::T = 0.3 # lower bound for "grey" densities
-    grey_band_hi::T = 0.7 # upper bound for "grey" densities
-    grey_fraction_trigger::T = 0.2 # trigger β growth if grey fraction above this
+    grey_band_lo::T = 0.25 # lower bound for "grey" densities
+    grey_band_hi::T = 0.75 # upper bound for "grey" densities
+    grey_fraction_trigger::T = 0.3 # trigger β growth if grey fraction above this
     
     # heaviside schedule options (monotonous β growth)
     use_heaviside_schedule::Bool = false # enable monotonous heaviside schedule

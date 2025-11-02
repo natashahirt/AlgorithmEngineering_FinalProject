@@ -20,6 +20,9 @@ include("core/boundary.jl")
 include("core/solvers.jl")
 include("core/analysis.jl")
 
+# FFI submodule for C++ integration
+include("FFI/cpp_solve.jl")
+
 # exports
 # Element types (Quad4 for 2D, Hex8 for 3D)
 export Mesh, Node, Element, Quad4, Hex8
