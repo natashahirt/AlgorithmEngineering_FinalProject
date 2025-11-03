@@ -7,19 +7,20 @@ Linear solvers for finite element analysis.
 solve_displacements(K, f)
 
 Solve the linear system `K * u = f` for the displacement vector.
-Uses direct solver with fallback to pseudo-inverse if singular.
+Uses C++ solver by default with fallback to Julia's standard solver if needed.
 """
-function solve_displacements(K, f; solver::Symbol=:standard)
+function solve_displacements(K, f; solver::Symbol=:cpp, is_spd::Bool=true)
     solver in [:standard, :cpp] || throw(ArgumentError("Solver must be either :standard (default) or :cpp, got :$solver"))
     try
         if solver == :standard
             return K \ f
         elseif solver == :cpp
-            return FEM.FFI.cpp_solve(K, f)
+            out = FEM.FFI.cpp_solve(K, f; is_spd=is_spd)
+            return out
         end
     catch e
-        @warn "Direct solver failed: $e"
-        return pinv(K) * f
+        @warn "C++ solver failed, falling back to Julia standard solver: $e"
+        return K \ f  # Fallback to Julia's built-in sparse solver
     end
 end
 

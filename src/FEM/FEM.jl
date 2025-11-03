@@ -10,6 +10,7 @@ Finite Element Method module for topology optimization.
 module FEM
 
 using LinearAlgebra, SparseArrays, StaticArrays, Statistics
+using Libdl
 
 # Import submodules
 include("core/mesh.jl")
